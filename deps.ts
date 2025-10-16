@@ -1,5 +1,2 @@
-import 'npm:@bogeychan/elysia-polyfills/deno/index.js';
-import 'npm:@sinclair/typebox@0.30.4'; // deno doesn't download peerDependencies. this one is required
-
-export { Elysia } from 'npm:elysia@0.6.19';
-
+export { Server, Client } from "npm:@grpc/grpc-js@^1.9.0";
+export * as protoLoader from "npm:@grpc/proto-loader@^0.7.0";
