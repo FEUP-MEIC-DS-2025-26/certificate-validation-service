@@ -1,11 +1,18 @@
-# Certifcate Validation Service
+# Certificate Validation Service
 
-# Setup
+## Setup
 
-Follow these steps to run [Elysia.js](https://elysiajs.com) under [Deno](https://deno.land):
+1. Install dependencies:
+```bash
+bun install
+```
 
-1. You're ready to go. Checkout the deno tasks inside [deno.jsonc](./deno.jsonc)!
-   ```bash
-   deno task start
-   ```
+2. Start the server:
+```bash
+bun run server
+```
 
+3. In another terminal, run the client:
+```bash
+bun run client
+```
