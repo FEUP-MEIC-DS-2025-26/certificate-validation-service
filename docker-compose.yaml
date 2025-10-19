@@ -1,0 +1,7 @@
+services:
+
+  server:
+    image: server
+    restart: always
+    ports:
+      - "50051:50051"
