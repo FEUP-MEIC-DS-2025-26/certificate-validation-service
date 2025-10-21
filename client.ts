@@ -1,6 +1,7 @@
 import * as grpc from "@grpc/grpc-js";
 import * as protoLoader from "@grpc/proto-loader";
 import path from "path";
+import fs from 'fs';
 
 const PROTO_PATH = path.join(process.cwd(), "proto", "user.proto");
 
@@ -24,6 +25,7 @@ const client = new userProto.UserService(
 
 console.log("🔌 Client connected with server!\n");
 
+/*
 console.log("1️⃣ Testing GetUser (id: 1)...");
 client.GetUser({ id: "1" }, (error: any, user: any) => {
 	if (error) {
@@ -62,4 +64,15 @@ client.GetUser({ id: "1" }, (error: any, user: any) => {
 			});
 		}
 	);
+});
+*/
+
+console.log("1️⃣ Sending certificate...\n");
+const certificate = fs.readFileSync('test_to_send/spiderweb.pdf')
+client.UploadCertificate({productId: Math.floor(Math.random() * 1000), file: certificate}, (error: any, response: any) => {
+	if (error) {
+		console.error("❌ Error:", error.message);
+	} else {
+		console.log(response.message);
+	}
 });

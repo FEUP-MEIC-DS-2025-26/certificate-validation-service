@@ -9,6 +9,7 @@ service UserService {
   rpc CreateUser (CreateUserRequest) returns (User);
   rpc UpdateUser (UpdateUserRequest) returns (User);
   rpc DeleteUser (DeleteUserRequest) returns (DeleteUserResponse);
+  rpc UploadCertificate (UploadCertificateRequest) returns (UploadCertificateResponse);
 }
 
 message User {
@@ -49,4 +50,13 @@ message DeleteUserRequest {
 
 message DeleteUserResponse {
   bool success = 1;
+}
+
+message UploadCertificateRequest {
+  int32 productId = 1;
+  bytes file = 2;
+}
+
+message UploadCertificateResponse {
+  string message = 1;
 }
