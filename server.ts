@@ -1,10 +1,9 @@
 import * as grpc from "@grpc/grpc-js";
 import * as protoLoader from "@grpc/proto-loader";
-import { UserService } from "./services/user.service.ts";
 import { CertificatesService } from "./services/certificates.service.ts";
 import path from "path";
 
-const PROTO_PATH = path.join(process.cwd(), "proto", "user.proto");
+const PROTO_PATH = path.join(process.cwd(), "proto", "certificates.proto");
 
 const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
 	keepCase: true,
@@ -15,50 +14,18 @@ const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
 });
 
 const protoDescriptor = grpc.loadPackageDefinition(packageDefinition);
-const userProto = protoDescriptor.user as any;
+const certificatesProto = protoDescriptor.certificates as any;
 
-if (!userProto || !userProto.UserService) {
-	console.error("❌ Error: UserService not found in .proto file");
+if (!certificatesProto || !certificatesProto.CertificatesService) {
+	console.error("❌ Error: CertificatesService not found in .proto file");
 	process.exit(1);
 }
 
-const userService = new UserService();
 const certificatesService = new CertificatesService();
 
 const server = new grpc.Server();
 
-server.addService(userProto.UserService.service, {
-	GetUser: (call: any, callback: any) => {
-		const { id } = call.request;
-		console.log(`📥 GetUser request: ${id}`);
-
-		const user = userService.getUser(id);
-
-		if (user) {
-			callback(null, user);
-		} else {
-			callback({
-				code: grpc.status.NOT_FOUND,
-				message: `User with id ${id} not found`,
-			});
-		}
-	},
-
-	CreateUser: (call: any, callback: any) => {
-		const { name, email } = call.request;
-		console.log(`📥 CreateUser request: ${name}, ${email}`);
-
-		const user = userService.createUser(name, email);
-		callback(null, user);
-	},
-
-	ListUsers: (_call: any, callback: any) => {
-		console.log(`📥 ListUsers request`);
-
-		const users = userService.listUsers();
-		callback(null, { users });
-	},
-
+server.addService(certificatesProto.CertificatesService.service, {
 	UploadCertificate: (call: any, callback: any) => {
 		const { productId, file } = call.request;
 

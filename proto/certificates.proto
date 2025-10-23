@@ -1,0 +1,17 @@
+// proto/user.proto
+syntax = "proto3";
+
+package certificates;
+
+service CertificatesService {
+  rpc UploadCertificate (UploadCertificateRequest) returns (UploadCertificateResponse);
+}
+
+message UploadCertificateRequest {
+  int32 productId = 1;
+  bytes file = 2;
+}
+
+message UploadCertificateResponse {
+  string message = 1;
+}
