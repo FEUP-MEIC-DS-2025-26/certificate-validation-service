@@ -26,12 +26,37 @@ const client = new certificatesProto.CertificatesService(
 console.log("🔌 Client connected with server!\n");
 
 
+function printErrorMessage(error: any) {
+	console.error("❌ Error:", error.message);
+}
+
 console.log("1️⃣ Sending certificate...\n");
 const certificate = fs.readFileSync('test_to_send/spiderweb.pdf')
 client.UploadCertificate({productId: Math.floor(Math.random() * 1000), file: certificate}, (error: any, response: any) => {
 	if (error) {
-		console.error("❌ Error:", error.message);
+		printErrorMessage(error);
 	} else {
-		console.log(response.message);
+		if (response.success) console.log(`✅ Your certificate was accepted!`);
+		else console.log(`❌ Invalid certificate!`);
+
+		console.log("2️⃣ Testing ListCertificates...");
+		client.ListCertificates({}, (error: any, response: any) => {
+			if (error) {
+				printErrorMessage(error);
+			} else {
+				const productIds = response.productIds;
+				console.log("✅", response.total, "Certificates:", productIds);
+
+				console.log("3️⃣ Deleting certificate...");
+				client.DeleteCertificate({productId: productIds[Math.floor(Math.random() * productIds.length)]}, (error: any, response: any) => {
+					if (error) {
+						printErrorMessage(error);
+					} else {
+						if (response.success) console.log(`✅ Your certificate was deleted!`);
+						else console.log(`❌ Invalid id!`);
+					}
+				});
+			}
+		});
 	}
 });

@@ -30,16 +30,22 @@ server.addService(certificatesProto.CertificatesService.service, {
 		const { productId, file } = call.request;
 
 		console.log(`📥 Checking certificate for ${productId}`);
-		if (certificatesService.UploadCertificate(productId, file)) callback(null, {message: `✅ Your certificate was accepted`});
-		else callback(null, {message: `❌ Invalid certificate!`});
+		callback(null, {success: certificatesService.uploadCertificate(productId, file)});
+	},
+
+	ListCertificates: (_call: any, callback: any) => {
+		console.log(`📥 ListCertificates request`);
+
+		const certificates = certificatesService.listCertificates();
+		callback(null, { productIds: certificates, total: certificates.length });
+	},
+
+	DeleteCertificate: (call: any, callback: any) => {
+		const { productId } = call.request;
+
+		console.log(`📥 Deleting certificate ${productId}`);
+		callback(null, {success: certificatesService.deleteCertificate(productId)});
 	}
-
-	/*ListCertificates: (_call: any, callback: any) => {
-		console.log(`📥 ListUsers request`);
-
-		const users = userService.listUsers();
-		callback(null, { users });
-	}*/
 });
 
 const PORT = "0.0.0.0:50051";

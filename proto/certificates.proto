@@ -5,6 +5,9 @@ package certificates;
 
 service CertificatesService {
   rpc UploadCertificate (UploadCertificateRequest) returns (UploadCertificateResponse);
+  rpc ListCertificates (ListCertificatesRequest) returns (ListCertificatesResponse);
+  rpc DeleteCertificate (DeleteCertificateRequest) returns (DeleteCertificateResponse);
+  rpc GetCertificate (GetCertificateRequest) returns (Certificate);
 }
 
 message UploadCertificateRequest {
@@ -13,5 +16,30 @@ message UploadCertificateRequest {
 }
 
 message UploadCertificateResponse {
-  string message = 1;
+  bool success = 1;
+}
+
+message ListCertificatesRequest {
+}
+
+message ListCertificatesResponse {
+  repeated int32 productIds = 1;
+  int32 total = 2;
+}
+
+message DeleteCertificateRequest {
+  int32 productId = 1;
+}
+
+message DeleteCertificateResponse {
+  bool success = 1;
+}
+
+message GetCertificateRequest {
+  int32 productId = 1;
+}
+
+message Certificate {
+  int32 productId = 1;
+  bytes file = 2;
 }
