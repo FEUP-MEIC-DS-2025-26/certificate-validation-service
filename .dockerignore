@@ -1,0 +1,38 @@
+# Git
+.git
+.gitignore
+.github
+
+# Dependencies
+node_modules
+
+# Documentation
+*.md
+README.md
+
+# Docker files
+Dockerfile
+docker-compose.yaml
+.dockerignore
+
+# Development files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Test files
+test_to_send
+
+# Build artifacts
+dist
+build
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Biome configuration
+biome.json
