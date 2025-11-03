@@ -30,7 +30,9 @@ server.addService(certificatesProto.CertificatesService.service, {
 		const { productId, file } = call.request;
 
 		console.log(`📥 Checking certificate for ${productId}`);
-		callback(null, {success: certificatesService.uploadCertificate(productId, file)});
+		callback(null, {
+			success: certificatesService.uploadCertificate(productId, file),
+		});
 	},
 
 	ListCertificates: (_call: any, callback: any) => {
@@ -44,8 +46,10 @@ server.addService(certificatesProto.CertificatesService.service, {
 		const { productId } = call.request;
 
 		console.log(`📥 Deleting certificate ${productId}`);
-		callback(null, {success: certificatesService.deleteCertificate(productId)});
-	}
+		callback(null, {
+			success: certificatesService.deleteCertificate(productId),
+		});
+	},
 });
 
 const PORT = "0.0.0.0:50051";
@@ -59,5 +63,5 @@ server.bindAsync(
 		}
 		console.log(`🚀 Server running on ${PORT}`);
 		console.log(`📡 Port: ${port}`);
-	}
+	},
 );
