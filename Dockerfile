@@ -1,11 +1,13 @@
-FROM oven/bun:latest
+FROM oven/bun:1
 
-COPY server.ts /server.ts
-COPY services/user.service.ts /services/user.service.ts
-COPY proto /proto
-COPY *.lock /*.lock
-COPY package.json /package.json
+WORKDIR /app
+
+COPY package.json bun.lock ./
 
 RUN bun install
 
-CMD bun run server
+COPY . .
+
+EXPOSE 50051
+
+CMD ["bun", "run", "server"]
