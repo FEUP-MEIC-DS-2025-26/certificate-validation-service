@@ -4,7 +4,8 @@
 	"scripts": {
 		"server": "bun server.ts",
 		"client": "bun client.ts",
-		"format:fix": "biome format --write"
+		"format:fix": "biome format --write",
+		"lint": "biome check"
 	},
 	"dependencies": {
 		"@grpc/grpc-js": "^1.9.0",

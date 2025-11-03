@@ -1,5 +1,5 @@
 // services/certificates.service.ts
-import fs from "fs";
+import fs from "node:fs";
 
 export class CertificatesService {
 	uploadCertificate(productId: number, file: NonSharedBuffer): boolean {
@@ -22,7 +22,7 @@ export class CertificatesService {
 		try {
 			fs.unlinkSync(`certificates/${productId}.pdf`);
 			return true;
-		} catch (err) {
+		} catch (_err) {
 			return false;
 		}
 	}
