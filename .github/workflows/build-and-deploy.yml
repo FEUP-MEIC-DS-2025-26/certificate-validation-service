@@ -1,4 +1,4 @@
-name: Build and Push Docker Image
+name: Build and Deploy
 
 on:
   push:
@@ -44,3 +44,12 @@ jobs:
         run: |
           docker push ${{ steps.vars.outputs.image }}:latest
           docker push ${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.sha_tag }}
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy certificate-validation \
+            --image ${{ steps.vars.outputs.image }}:latest \
+            --region $REGION \
+            --project $PROJECT_ID \
+            --platform managed \
+            --quiet
