@@ -8,6 +8,6 @@ RUN bun install
 
 COPY . .
 
-EXPOSE 50051
+EXPOSE 8080
 
 CMD ["bun", "run", "server"]

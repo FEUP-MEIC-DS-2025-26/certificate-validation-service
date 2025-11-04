@@ -67,10 +67,7 @@ server.addService(certificatesProto.CertificatesService.service, {
 
 		console.log(`📥 Checking certificate for ${productId}`);
 		callback(null, {
-			success: certificatesService.uploadCertificate(
-				productId,
-				Buffer.from(file),
-			),
+			success: certificatesService.uploadCertificate(productId, file),
 		});
 	},
 
@@ -103,16 +100,16 @@ server.addService(certificatesProto.CertificatesService.service, {
 	},
 });
 
-const PORT = "0.0.0.0:50051";
+const PORT = process.env.PORT || 8080;
 server.bindAsync(
-	PORT,
+	`0.0.0.0:${PORT}`,
 	grpc.ServerCredentials.createInsecure(),
 	(error, port) => {
 		if (error) {
 			console.error("❌ Error starting server: ", error);
 			process.exit(1);
 		}
-		console.log(`🚀 Server running on ${PORT}`);
+		console.log(`🚀 Server running on 0.0.0.0:${PORT}`);
 		console.log(`📡 Port: ${port}`);
 	},
 );

@@ -33,8 +33,8 @@ const certificatesProto = protoDescriptor.certificates as {
 };
 
 const client = new certificatesProto.CertificatesService(
-	"localhost:50051",
-	grpcJs.credentials.createInsecure(),
+	"certificate-validation-180908610681.europe-southwest1.run.app:8080",
+	grpcJs.credentials.createSsl(),
 );
 
 console.log("🔌 Client connected with server!\n");
