@@ -13,7 +13,10 @@ export class CertificatesService {
 
 	uploadCertificate(productId: number, file: Buffer): boolean {
 		if (Math.random() > 0.3) {
-			fs.writeFileSync(path.join(this.certificatesDir, `${productId}.pdf`), file);
+			fs.writeFileSync(
+				path.join(this.certificatesDir, `${productId}.pdf`),
+				file,
+			);
 			return true;
 		} else {
 			return false;
