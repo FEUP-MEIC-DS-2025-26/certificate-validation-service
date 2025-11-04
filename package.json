@@ -1,19 +1,5 @@
 {
-	"name": "grpc-service",
-	"type": "module",
-	"scripts": {
-		"server": "bun server.ts",
-		"client": "bun client.ts",
-		"format:fix": "biome format --write",
-		"lint": "biome check"
-	},
-	"dependencies": {
-		"@grpc/grpc-js": "^1.9.0",
-		"@grpc/proto-loader": "^0.7.0"
-	},
-	"devDependencies": {
-		"@biomejs/biome": "2.3.3",
-		"@types/node": "^20.0.0",
-		"bun-types": "latest"
-	}
+  "dependencies": {
+    "@google-cloud/pubsub": "^5.2.0"
+  }
 }

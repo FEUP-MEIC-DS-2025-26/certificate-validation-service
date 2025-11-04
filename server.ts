@@ -1,115 +1,37 @@
-import path from "node:path";
-import type { GrpcObject } from "@grpc/grpc-js";
-import * as grpc from "@grpc/grpc-js";
-import * as protoLoader from "@grpc/proto-loader";
-import { CertificatesService } from "./services/certificates.service.ts";
+import { PubSub } from "@google-cloud/pubsub";
+import { handleCertificateMessage } from "./services/certificates.service";
+import dotenv from "dotenv";
 
-interface UploadCertificateRequest {
-	productId: number;
-	file: Buffer;
+dotenv.config();
+
+const PROJECT_ID = process.env.PROJECT_ID || "test-project";
+const TOPIC_NAME = process.env.TOPIC_NAME || "CertificatesTopic";
+const SUBSCRIPTION_NAME = process.env.SUBSCRIPTION_NAME || "CertificatesSubscription";
+
+const pubSubClient = new PubSub({ projectId: PROJECT_ID });
+
+async function setupPubSub() {
+	const [topics] = await pubSubClient.getTopics();
+	const topicExists = topics.some((t) => t.name.endsWith(TOPIC_NAME));
+	if (!topicExists) {
+		await pubSubClient.createTopic(TOPIC_NAME);
+		console.log(`🆕 Created topic: ${TOPIC_NAME}`);
+	}
+
+	const [subscriptions] = await pubSubClient.getSubscriptions();
+	const subExists = subscriptions.some((s) => s.name.endsWith(SUBSCRIPTION_NAME));
+	if (!subExists) {
+		await pubSubClient
+			.topic(TOPIC_NAME)
+			.createSubscription(SUBSCRIPTION_NAME);
+		console.log(`🆕 Created subscription: ${SUBSCRIPTION_NAME}`);
+	}
+
+	const subscription = pubSubClient.subscription(SUBSCRIPTION_NAME);
+	subscription.on("message", handleCertificateMessage);
+	subscription.on("error", (err) => console.error("❌ Subscription error:", err));
+
+	console.log(`✅ Listening for messages on ${SUBSCRIPTION_NAME}`);
 }
 
-interface UploadCertificateResponse {
-	success: boolean;
-}
-
-type ListCertificatesRequest = Record<string, never>;
-
-interface ListCertificatesResponse {
-	productIds: number[];
-	total: number;
-}
-
-interface DeleteCertificateRequest {
-	productId: number;
-}
-
-interface DeleteCertificateResponse {
-	success: boolean;
-}
-
-const PROTO_PATH = path.join(process.cwd(), "proto", "certificates.proto");
-
-const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
-	keepCase: true,
-	longs: String,
-	enums: String,
-	defaults: true,
-	oneofs: true,
-});
-
-const protoDescriptor: GrpcObject =
-	grpc.loadPackageDefinition(packageDefinition);
-const certificatesProto = protoDescriptor.certificates as unknown as {
-	CertificatesService: grpc.ServiceClientConstructor & {
-		service: grpc.ServiceDefinition;
-	};
-};
-
-if (!certificatesProto || !certificatesProto.CertificatesService) {
-	console.error("❌ Error: CertificatesService not found in .proto file");
-	process.exit(1);
-}
-
-const certificatesService = new CertificatesService();
-
-const server = new grpc.Server();
-
-server.addService(certificatesProto.CertificatesService.service, {
-	UploadCertificate: (
-		call: grpc.ServerUnaryCall<
-			UploadCertificateRequest,
-			UploadCertificateResponse
-		>,
-		callback: grpc.sendUnaryData<UploadCertificateResponse>,
-	) => {
-		const { productId, file } = call.request;
-
-		console.log(`📥 Checking certificate for ${productId}`);
-		callback(null, {
-			success: certificatesService.uploadCertificate(productId, file),
-		});
-	},
-
-	ListCertificates: (
-		_call: grpc.ServerUnaryCall<
-			ListCertificatesRequest,
-			ListCertificatesResponse
-		>,
-		callback: grpc.sendUnaryData<ListCertificatesResponse>,
-	) => {
-		console.log(`📥 ListCertificates request`);
-
-		const certificates = certificatesService.listCertificates();
-		callback(null, { productIds: certificates, total: certificates.length });
-	},
-
-	DeleteCertificate: (
-		call: grpc.ServerUnaryCall<
-			DeleteCertificateRequest,
-			DeleteCertificateResponse
-		>,
-		callback: grpc.sendUnaryData<DeleteCertificateResponse>,
-	) => {
-		const { productId } = call.request;
-
-		console.log(`📥 Deleting certificate ${productId}`);
-		callback(null, {
-			success: certificatesService.deleteCertificate(productId),
-		});
-	},
-});
-
-const PORT = process.env.PORT || 8080;
-server.bindAsync(
-	`0.0.0.0:${PORT}`,
-	grpc.ServerCredentials.createInsecure(),
-	(error, port) => {
-		if (error) {
-			console.error("❌ Error starting server: ", error);
-			process.exit(1);
-		}
-		console.log(`🚀 Server running on 0.0.0.0:${PORT}`);
-		console.log(`📡 Port: ${port}`);
-	},
-);
+setupPubSub();
