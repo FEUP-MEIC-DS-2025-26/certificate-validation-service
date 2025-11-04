@@ -1,0 +1,46 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: made-in-portugal-dsle
+  REGION: europe-southwest1
+  REPOSITORY: t01g01-registry
+  IMAGE_NAME: certificate-validation
+  REGISTRY: europe-southwest1-docker.pkg.dev
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Google Cloud authentication
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker $REGISTRY --quiet
+
+      - name: Define image tags
+        id: vars
+        run: |
+          SHA_TAG=${GITHUB_SHA::7}
+          echo "sha_tag=$SHA_TAG" >> $GITHUB_OUTPUT
+          echo "image=$REGISTRY/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME" >> $GITHUB_OUTPUT
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ steps.vars.outputs.image }}:latest \
+                       -t ${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.sha_tag }} .
+
+      - name: Push Docker images
+        run: |
+          docker push ${{ steps.vars.outputs.image }}:latest
+          docker push ${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.sha_tag }}
