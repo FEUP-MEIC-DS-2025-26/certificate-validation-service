@@ -15,7 +15,6 @@
 		"dotenv": "^17.2.3"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.3.3",
-		"@types/dotenv": "^8.2.3"
+		"@biomejs/biome": "^2.3.3"
 	}
 }
