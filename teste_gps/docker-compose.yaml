@@ -1,0 +1,18 @@
+services:
+  pubsub-emulator:
+    image: dipjyotimetia/pubsub-emulator:latest
+    container_name: pubsub-emulator
+    environment:
+      - PUBSUB_PROJECT=test-project
+      - PUBSUB_TOPIC=CertificatesTopic
+      - PUBSUB_SUBSCRIPTION=CertificatesResponses
+      - PUBSUB_PORT=8085
+      - DASHBOARD_PORT=8080
+    ports:
+      - "8085:8085"  # Pub/Sub emulator
+      - "8080:8080"  # Web dashboard
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3

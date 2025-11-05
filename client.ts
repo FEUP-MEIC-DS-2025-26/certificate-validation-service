@@ -1,91 +1,114 @@
 import fs from "node:fs";
-import path from "node:path";
-import type { ServiceError } from "@grpc/grpc-js";
-import * as grpcJs from "@grpc/grpc-js";
-import * as protoLoader from "@grpc/proto-loader";
+import { PubSub } from "@google-cloud/pubsub";
+import dotenv from "dotenv";
 
-interface UploadCertificateResponse {
-	success: boolean;
+dotenv.config();
+
+const PROJECT_ID = process.env.PROJECT_ID || "test-project";
+
+const REQUEST_TOPIC = process.env.REQUEST_TOPIC || "CertificatesRequestTopic";
+const RESPONSE_TOPIC =
+	process.env.RESPONSE_TOPIC || "CertificatesResponseTopic";
+const RESPONSE_SUBSCRIPTION =
+	process.env.RESPONSE_SUBSCRIPTION || "CertificatesResponseSubscription";
+
+const pubSubClient = new PubSub({ projectId: PROJECT_ID });
+
+async function setupResponseSubscription() {
+	const [topics] = await pubSubClient.getTopics();
+	if (!topics.some((t) => t.name.endsWith(RESPONSE_TOPIC))) {
+		await pubSubClient.createTopic(RESPONSE_TOPIC);
+		console.log(`🆕 Created response topic: ${RESPONSE_TOPIC}`);
+	}
+
+	const [subscriptions] = await pubSubClient.getSubscriptions();
+	if (!subscriptions.some((s) => s.name.endsWith(RESPONSE_SUBSCRIPTION))) {
+		await pubSubClient
+			.topic(RESPONSE_TOPIC)
+			.createSubscription(RESPONSE_SUBSCRIPTION);
+		console.log(`🆕 Created response subscription: ${RESPONSE_SUBSCRIPTION}`);
+	}
 }
 
-interface ListCertificatesResponse {
-	productIds: number[];
-	total: number;
+async function publishRequest(
+	operationType: string,
+	data: Record<string, any>,
+) {
+	const payload = JSON.stringify({ operationType, data });
+	const messageId = await pubSubClient.topic(REQUEST_TOPIC).publishMessage({
+		data: Buffer.from(payload),
+	});
+	console.log(`📤 Published ${operationType} message (${messageId})`);
 }
 
-interface DeleteCertificateResponse {
-	success: boolean;
+function waitForResponse(expectedType: string, timeoutMs = 5000): Promise<any> {
+	return new Promise((resolve, reject) => {
+		const subscription = pubSubClient.subscription(RESPONSE_SUBSCRIPTION);
+
+		const handler = (message: any) => {
+			try {
+				const parsed = JSON.parse(message.data.toString());
+				if (parsed.type === expectedType) {
+					message.ack();
+					subscription.removeListener("message", handler);
+					clearTimeout(timeout);
+					resolve(parsed);
+				}
+			} catch (err) {
+				console.error("❌ Failed to parse response:", err);
+				message.nack();
+			}
+		};
+
+		const timeout = setTimeout(() => {
+			subscription.removeListener("message", handler);
+			reject(new Error(`Timeout waiting for ${expectedType}`));
+		}, timeoutMs);
+
+		subscription.on("message", handler);
+	});
 }
 
-const PROTO_PATH = path.join(process.cwd(), "proto", "certificates.proto");
+async function main() {
+	console.log("🔌 Connected to Google Pub/Sub\n");
 
-const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
-	keepCase: true,
-	longs: String,
-	enums: String,
-	defaults: true,
-	oneofs: true,
-});
+	await setupResponseSubscription(); // Ensure response subscription exists
 
-const protoDescriptor = grpcJs.loadPackageDefinition(packageDefinition);
-const certificatesProto = protoDescriptor.certificates as {
-	CertificatesService: grpcJs.ServiceClientConstructor;
-};
+	// 1️⃣ Upload
+	const productId = Math.floor(Math.random() * 1000);
+	const file = fs.readFileSync("test_to_send/spiderweb.pdf");
+	const fileBase64 = file.toString("base64");
 
-const client = new certificatesProto.CertificatesService(
-	"certificate-validation-180908610681.europe-southwest1.run.app:8080",
-	grpcJs.credentials.createSsl(),
-);
+	await publishRequest("upload", { productId, file: fileBase64 });
+	const uploadResponse = await waitForResponse("uploadResponse");
 
-console.log("🔌 Client connected with server!\n");
+	if (uploadResponse.success)
+		console.log(`✅ Certificate uploaded successfully!`);
+	else console.log(`❌ Failed to upload certificate!`);
 
-function printErrorMessage(error: ServiceError) {
-	console.error("❌ Error:", error.message);
+	// 2️⃣ List
+	await publishRequest("list", {});
+	const listResponse = await waitForResponse("listResponse");
+	console.log(
+		`✅ Found ${listResponse.total} certificates:`,
+		listResponse.productIds,
+	);
+
+	// 3️⃣ Delete random certificate
+	if (listResponse.productIds.length > 0) {
+		const randomId =
+			listResponse.productIds[
+				Math.floor(Math.random() * listResponse.productIds.length)
+			];
+		await publishRequest("delete", { productId: randomId });
+		const deleteResponse = await waitForResponse("deleteResponse");
+
+		if (deleteResponse.success)
+			console.log(`✅ Certificate with ID ${randomId} deleted successfully!`);
+		else console.log(`❌ Failed to delete certificate with ID ${randomId}`);
+	} else {
+		console.log("⚠️ No certificates found to delete.");
+	}
 }
 
-console.log("1️⃣ Sending certificate...\n");
-const certificate = fs.readFileSync("test_to_send/spiderweb.pdf");
-client.UploadCertificate(
-	{ productId: Math.floor(Math.random() * 1000), file: certificate },
-	(error: ServiceError | null, response: UploadCertificateResponse) => {
-		if (error) {
-			printErrorMessage(error);
-		} else {
-			if (response.success) console.log(`✅ Your certificate was accepted!`);
-			else console.log(`❌ Invalid certificate!`);
-
-			console.log("2️⃣ Testing ListCertificates...");
-			client.ListCertificates(
-				{},
-				(error: ServiceError | null, response: ListCertificatesResponse) => {
-					if (error) {
-						printErrorMessage(error);
-					} else {
-						const productIds = response.productIds;
-						console.log("✅", response.total, "Certificates:", productIds);
-
-						console.log("3️⃣ Deleting certificate...");
-						client.DeleteCertificate(
-							{
-								productId:
-									productIds[Math.floor(Math.random() * productIds.length)],
-							},
-							(
-								error: ServiceError | null,
-								response: DeleteCertificateResponse,
-							) => {
-								if (error) {
-									printErrorMessage(error);
-								} else {
-									if (response.success)
-										console.log(`✅ Your certificate was deleted!`);
-									else console.log(`❌ Invalid id!`);
-								}
-							},
-						);
-					}
-				},
-			);
-		}
-	},
-);
+await main();
