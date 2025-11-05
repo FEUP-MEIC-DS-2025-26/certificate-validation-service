@@ -1,8 +1,21 @@
 {
+	"name": "certificate-validation-service",
+	"version": "1.0.0",
+	"type": "module",
+	"scripts": {
+		"server": "bun server.ts",
+		"client": "bun client.ts",
+		"format:fix": "biome format --write",
+		"lint": "biome check"
+	},
 	"dependencies": {
-		"@google-cloud/pubsub": "^5.2.0"
+		"@google-cloud/firestore": "^8.0.0",
+		"@google-cloud/pubsub": "^5.2.0",
+		"@google-cloud/storage": "^7.17.3",
+		"dotenv": "^17.2.3"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.3.3"
+		"@biomejs/biome": "^2.3.3",
+		"@types/dotenv": "^8.2.3"
 	}
 }
