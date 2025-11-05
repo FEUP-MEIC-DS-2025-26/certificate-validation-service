@@ -30,9 +30,35 @@ async function setupResponseSubscription() {
 	}
 }
 
+interface PubSubMessage {
+	data: Buffer;
+	ack: () => void;
+	nack: () => void;
+}
+
+interface UploadResponse {
+	type: "uploadResponse";
+	productId: number;
+	success: boolean;
+}
+
+interface ListResponse {
+	type: "listResponse";
+	productIds: number[];
+	total: number;
+}
+
+interface DeleteResponse {
+	type: "deleteResponse";
+	productId: number;
+	success: boolean;
+}
+
+type ResponseMessage = UploadResponse | ListResponse | DeleteResponse;
+
 async function publishRequest(
 	operationType: string,
-	data: Record<string, any>,
+	data: Record<string, unknown>,
 ) {
 	const payload = JSON.stringify({ operationType, data });
 	const messageId = await pubSubClient.topic(REQUEST_TOPIC).publishMessage({
@@ -41,11 +67,14 @@ async function publishRequest(
 	console.log(`📤 Published ${operationType} message (${messageId})`);
 }
 
-function waitForResponse(expectedType: string, timeoutMs = 5000): Promise<any> {
+function waitForResponse(
+	expectedType: string,
+	timeoutMs = 5000,
+): Promise<ResponseMessage> {
 	return new Promise((resolve, reject) => {
 		const subscription = pubSubClient.subscription(RESPONSE_SUBSCRIPTION);
 
-		const handler = (message: any) => {
+		const handler = (message: PubSubMessage) => {
 			try {
 				const parsed = JSON.parse(message.data.toString());
 				if (parsed.type === expectedType) {
@@ -80,7 +109,9 @@ async function main() {
 	const fileBase64 = file.toString("base64");
 
 	await publishRequest("upload", { productId, file: fileBase64 });
-	const uploadResponse = await waitForResponse("uploadResponse");
+	const uploadResponse = (await waitForResponse(
+		"uploadResponse",
+	)) as UploadResponse;
 
 	if (uploadResponse.success)
 		console.log(`✅ Certificate uploaded successfully!`);
@@ -88,7 +119,7 @@ async function main() {
 
 	// 2️⃣ List
 	await publishRequest("list", {});
-	const listResponse = await waitForResponse("listResponse");
+	const listResponse = (await waitForResponse("listResponse")) as ListResponse;
 	console.log(
 		`✅ Found ${listResponse.total} certificates:`,
 		listResponse.productIds,
@@ -101,7 +132,9 @@ async function main() {
 				Math.floor(Math.random() * listResponse.productIds.length)
 			];
 		await publishRequest("delete", { productId: randomId });
-		const deleteResponse = await waitForResponse("deleteResponse");
+		const deleteResponse = (await waitForResponse(
+			"deleteResponse",
+		)) as DeleteResponse;
 
 		if (deleteResponse.success)
 			console.log(`✅ Certificate with ID ${randomId} deleted successfully!`);

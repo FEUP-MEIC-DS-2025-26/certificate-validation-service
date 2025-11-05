@@ -1,6 +1,11 @@
 node_modules/
 .env
 
+# Service account keys and credentials
+service-account-key.json
+service-account-key-base64.txt
+*-key.json
+
 # Terraform
 infra/.terraform/
 infra/terraform.tfstate
