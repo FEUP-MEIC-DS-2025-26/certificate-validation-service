@@ -56,7 +56,7 @@ const certificatesService = new CertificatesService();
 const server = new grpc.Server();
 
 server.addService(certificatesProto.CertificatesService.service, {
-	UploadCertificate: (
+	UploadCertificate: async (
 		call: grpc.ServerUnaryCall<
 			UploadCertificateRequest,
 			UploadCertificateResponse
@@ -65,13 +65,22 @@ server.addService(certificatesProto.CertificatesService.service, {
 	) => {
 		const { productId, file } = call.request;
 
-		console.log(`📥 Checking certificate for ${productId}`);
-		callback(null, {
-			success: certificatesService.uploadCertificate(productId, file),
-		});
+		console.log(`📥 Uploading certificate for ${productId}`);
+		try {
+			const success = await certificatesService.uploadCertificate(
+				productId,
+				file,
+			);
+			callback(null, { success });
+		} catch (error) {
+			callback({
+				code: grpc.status.INTERNAL,
+				details: `Failed to upload certificate: ${error}`,
+			});
+		}
 	},
 
-	ListCertificates: (
+	ListCertificates: async (
 		_call: grpc.ServerUnaryCall<
 			ListCertificatesRequest,
 			ListCertificatesResponse
@@ -80,11 +89,18 @@ server.addService(certificatesProto.CertificatesService.service, {
 	) => {
 		console.log(`📥 ListCertificates request`);
 
-		const certificates = certificatesService.listCertificates();
-		callback(null, { productIds: certificates, total: certificates.length });
+		try {
+			const certificates = await certificatesService.listCertificates();
+			callback(null, { productIds: certificates, total: certificates.length });
+		} catch (error) {
+			callback({
+				code: grpc.status.INTERNAL,
+				details: `Failed to list certificates: ${error}`,
+			});
+		}
 	},
 
-	DeleteCertificate: (
+	DeleteCertificate: async (
 		call: grpc.ServerUnaryCall<
 			DeleteCertificateRequest,
 			DeleteCertificateResponse
@@ -94,9 +110,15 @@ server.addService(certificatesProto.CertificatesService.service, {
 		const { productId } = call.request;
 
 		console.log(`📥 Deleting certificate ${productId}`);
-		callback(null, {
-			success: certificatesService.deleteCertificate(productId),
-		});
+		try {
+			const success = await certificatesService.deleteCertificate(productId);
+			callback(null, { success });
+		} catch (error) {
+			callback({
+				code: grpc.status.INTERNAL,
+				details: `Failed to delete certificate: ${error}`,
+			});
+		}
 	},
 });
 

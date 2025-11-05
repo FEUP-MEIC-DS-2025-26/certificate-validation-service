@@ -1,7 +1,13 @@
 node_modules/
 
+# Environment variables
+.env
+
 # Terraform
 infra/.terraform/
 infra/terraform.tfstate
 infra/terraform.tfstate.backup
 infra/.terraform.lock.hcl
+infra/terraform.tfvars
+infra/*.tfvars
+!infra/terraform.tfvars.example

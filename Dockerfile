@@ -1,13 +1,25 @@
-FROM oven/bun:1
+FROM oven/bun:1 AS base
 
 WORKDIR /app
 
-COPY package.json bun.lock ./
+# Copy dependency files
+COPY package.json bun.lock* ./
 
-RUN bun install
+# Install all dependencies (including @google-cloud packages)
+RUN bun install --frozen-lockfile
 
+# Copy source code
 COPY . .
 
+# Expose port
 EXPOSE 8080
 
-CMD ["bun", "run", "server"]
+# Set environment variable for port
+ENV PORT=8080
+
+# Health check (optional but helpful for debugging)
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD bun --version || exit 1
+
+# Start the server
+CMD ["bun", "run", "server.ts"]
