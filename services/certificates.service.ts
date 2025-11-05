@@ -1,6 +1,7 @@
 // services/certificates.service.ts
-import { Storage } from "@google-cloud/storage";
+
 import { Firestore } from "@google-cloud/firestore";
+import { Storage } from "@google-cloud/storage";
 
 interface CertificateMetadata {
 	productId: number;
@@ -22,7 +23,7 @@ export class CertificatesService {
 			? {
 					projectId: process.env.GCP_PROJECT_ID,
 					keyFilename: process.env.GCP_KEY_FILE,
-			  }
+				}
 			: { projectId: process.env.GCP_PROJECT_ID };
 
 		this.storage = new Storage(config);
