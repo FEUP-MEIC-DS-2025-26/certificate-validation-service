@@ -9,8 +9,10 @@ import dotenv from "dotenv";
 dotenv.config();
 
 // PubSub configuration - uses PUBSUB_EMULATOR_HOST from .env (local) or defaults (production)
-const PUBSUB_PROJECT_ID = process.env.PROJECT_ID || process.env.GCP_PROJECT_ID || "test-project";
-const RESPONSE_TOPIC = process.env.RESPONSE_TOPIC || "CertificatesResponseTopic";
+const PUBSUB_PROJECT_ID =
+	process.env.PROJECT_ID || process.env.GCP_PROJECT_ID || "test-project";
+const RESPONSE_TOPIC =
+	process.env.RESPONSE_TOPIC || "CertificatesResponseTopic";
 const pubSubClient = new PubSub({ projectId: PUBSUB_PROJECT_ID });
 
 interface CertificateMetadata {
@@ -21,7 +23,7 @@ interface CertificateMetadata {
 	storagePath: string;
 }
 
-async function publishMessage(data: Record<string, any>) {
+async function publishMessage(data: Record<string, unknown>) {
 	const dataBuffer = Buffer.from(JSON.stringify(data));
 	await pubSubClient.topic(RESPONSE_TOPIC).publish(dataBuffer);
 }
@@ -37,9 +39,9 @@ export class CertificatesService {
 		// 1. Production (Cloud Run): Uses Workload Identity - no explicit credentials needed
 		// 2. Local with service account key: Uses GOOGLE_APPLICATION_CREDENTIALS env var
 		// 3. Fallback: Application Default Credentials (ADC)
-		
+
 		const projectId = process.env.GCP_PROJECT_ID || process.env.PROJECT_ID;
-		
+
 		// Only specify credentials if GOOGLE_APPLICATION_CREDENTIALS is set (local dev)
 		const config = process.env.GOOGLE_APPLICATION_CREDENTIALS
 			? {
@@ -168,7 +170,12 @@ export class CertificatesService {
 	}
 }
 
-export async function handleCertificateMessage(message: any) {
+interface PubSubMessage {
+	data: Buffer;
+	ack: () => void;
+}
+
+export async function handleCertificateMessage(message: PubSubMessage) {
 	try {
 		const parsed = JSON.parse(message.data.toString());
 		console.log("📩 Received message:", parsed);
