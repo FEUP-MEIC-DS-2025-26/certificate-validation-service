@@ -54,8 +54,8 @@ jobs:
           echo "service_account_email=$(terraform output -raw service_account_email)" >> $GITHUB_OUTPUT
 
     outputs:
-      bucket_name: ${{ steps.tf_outputs.outputs.bucket_name }}
-      service_account_email: ${{ steps.tf_outputs.outputs.service_account_email }}
+      bucket_name: ${{ steps.tf_outputs.bucket_name }}
+      service_account_email: ${{ steps.tf_outputs.service_account_email }}
 
   build:
     name: Build and Deploy Application
