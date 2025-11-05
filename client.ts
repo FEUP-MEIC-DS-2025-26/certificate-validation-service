@@ -1,5 +1,4 @@
-// client.ts
-import fs from "fs";
+import fs from "node:fs";
 import { PubSub } from "@google-cloud/pubsub";
 import dotenv from "dotenv";
 

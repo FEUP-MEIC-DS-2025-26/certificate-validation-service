@@ -1,4 +1,4 @@
-import fs from "fs";
+import fs from "node:fs";
 import { PubSub } from "@google-cloud/pubsub";
 
 process.env.PUBSUB_EMULATOR_HOST = 'localhost:8085';
