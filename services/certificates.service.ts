@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import { PubSub } from "@google-cloud/pubsub";
 
-process.env.PUBSUB_EMULATOR_HOST = 'localhost:8085';
+process.env.PUBSUB_EMULATOR_HOST = "localhost:8085";
 const PROJECT_ID = "test-project";
 const pubSubClient = new PubSub({ projectId: PROJECT_ID });
 
@@ -20,7 +20,9 @@ export class CertificatesService {
 				console.log(`✔️ Uploaded certificate for productId: ${productId}`);
 				return true;
 			}
-			console.log(`❌ Failed to upload certificate for productId: ${productId}`);
+			console.log(
+				`❌ Failed to upload certificate for productId: ${productId}`,
+			);
 			return false;
 		} catch (err) {
 			console.error(`Error uploading certificate for ${productId}:`, err);

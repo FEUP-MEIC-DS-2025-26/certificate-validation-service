@@ -6,11 +6,15 @@ dotenv.config();
 
 const PROJECT_ID = process.env.PROJECT_ID || "test-project";
 const REQUEST_TOPIC = process.env.TOPIC_NAME || "CertificatesTopic";
-const RESPONSE_SUBSCRIPTION = process.env.SUBSCRIPTION_NAME || "CertificatesSubscription";
+const RESPONSE_SUBSCRIPTION =
+	process.env.SUBSCRIPTION_NAME || "CertificatesSubscription";
 
 const pubSubClient = new PubSub({ projectId: PROJECT_ID });
 
-async function publishRequest(operationType: string, data: Record<string, any>) {
+async function publishRequest(
+	operationType: string,
+	data: Record<string, any>,
+) {
 	const payload = JSON.stringify({ operationType, data });
 	const messageId = await pubSubClient.topic(REQUEST_TOPIC).publishMessage({
 		data: Buffer.from(payload),
@@ -51,18 +55,24 @@ async function main() {
 	await publishRequest("upload", { productId, file: fileBase64 });
 	const uploadResponse = await waitForResponse("uploadResponse");
 
-	if (uploadResponse.success) console.log(`✅ Certificate uploaded successfully!`);
+	if (uploadResponse.success)
+		console.log(`✅ Certificate uploaded successfully!`);
 	else console.log(`❌ Failed to upload certificate!`);
 
 	console.log("\n2️⃣ Listing certificates...");
 	await publishRequest("list", {});
 	const listResponse = await waitForResponse("listResponse");
-	console.log(`✅ Found ${listResponse.total} certificates:`, listResponse.productIds);
+	console.log(
+		`✅ Found ${listResponse.total} certificates:`,
+		listResponse.productIds,
+	);
 
 	if (listResponse.productIds.length > 0) {
 		console.log("\n3️⃣ Deleting a certificate...");
 		const randomId =
-			listResponse.productIds[Math.floor(Math.random() * listResponse.productIds.length)];
+			listResponse.productIds[
+				Math.floor(Math.random() * listResponse.productIds.length)
+			];
 		await publishRequest("delete", { productId: randomId });
 		const deleteResponse = await waitForResponse("deleteResponse");
 
