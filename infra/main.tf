@@ -33,15 +33,6 @@ resource "google_storage_bucket" "certificates" {
     enabled = true
   }
 
-  lifecycle_rule {
-    condition {
-      age = 365 # Delete files older than 1 year
-    }
-    action {
-      type = "Delete"
-    }
-  }
-
   depends_on = [google_project_service.storage]
 }
 

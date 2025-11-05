@@ -101,7 +101,7 @@ jobs:
             --quiet \
             --allow-unauthenticated \
             --service-account=${{ needs.infrastructure.outputs.service_account_email }} \
-            --set-env-vars="GCP_PROJECT_ID=$PROJECT_ID,GCS_BUCKET_NAME=${{ needs.infrastructure.outputs.bucket_name }}" \
+            --set-env-vars="GCP_PROJECT_ID=$PROJECT_ID,PROJECT_ID=$PROJECT_ID,GCS_BUCKET_NAME=${{ needs.infrastructure.outputs.bucket_name }},REQUEST_TOPIC=CertificatesRequestTopic,RESPONSE_TOPIC=CertificatesResponseTopic,REQUEST_SUBSCRIPTION=CertificatesRequestSubscription,RESPONSE_SUBSCRIPTION=CertificatesResponseSubscription" \
             --memory=512Mi \
             --timeout=300 \
             --port=8080

@@ -3,11 +3,14 @@
 import { Firestore } from "@google-cloud/firestore";
 import { PubSub } from "@google-cloud/pubsub";
 import { Storage } from "@google-cloud/storage";
+import dotenv from "dotenv";
 
-// PubSub configuration
-process.env.PUBSUB_EMULATOR_HOST = "localhost:8085";
-const PUBSUB_PROJECT_ID = "test-project";
-const RESPONSE_TOPIC = "CertificatesResponseTopic";
+// Load .env only if it exists (for local development)
+dotenv.config();
+
+// PubSub configuration - uses PUBSUB_EMULATOR_HOST from .env (local) or defaults (production)
+const PUBSUB_PROJECT_ID = process.env.PROJECT_ID || process.env.GCP_PROJECT_ID || "test-project";
+const RESPONSE_TOPIC = process.env.RESPONSE_TOPIC || "CertificatesResponseTopic";
 const pubSubClient = new PubSub({ projectId: PUBSUB_PROJECT_ID });
 
 interface CertificateMetadata {
@@ -30,13 +33,20 @@ export class CertificatesService {
 	private collectionName: string;
 
 	constructor() {
-		// In Cloud Run, credentials are automatic. Locally, use key file if provided.
-		const config = process.env.GCP_KEY_FILE
+		// Configuration priority:
+		// 1. Production (Cloud Run): Uses Workload Identity - no explicit credentials needed
+		// 2. Local with service account key: Uses GOOGLE_APPLICATION_CREDENTIALS env var
+		// 3. Fallback: Application Default Credentials (ADC)
+		
+		const projectId = process.env.GCP_PROJECT_ID || process.env.PROJECT_ID;
+		
+		// Only specify credentials if GOOGLE_APPLICATION_CREDENTIALS is set (local dev)
+		const config = process.env.GOOGLE_APPLICATION_CREDENTIALS
 			? {
-					projectId: process.env.GCP_PROJECT_ID,
-					keyFilename: process.env.GCP_KEY_FILE,
+					projectId,
+					keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
 				}
-			: { projectId: process.env.GCP_PROJECT_ID };
+			: { projectId }; // Cloud Run uses Workload Identity automatically
 
 		this.storage = new Storage(config);
 		this.firestore = new Firestore(config);
