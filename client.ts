@@ -5,16 +5,29 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const PROJECT_ID = process.env.PROJECT_ID || "test-project";
-const REQUEST_TOPIC = process.env.TOPIC_NAME || "CertificatesTopic";
+
+const REQUEST_TOPIC = process.env.REQUEST_TOPIC || "CertificatesRequestTopic";
+const RESPONSE_TOPIC = process.env.RESPONSE_TOPIC || "CertificatesResponseTopic";
 const RESPONSE_SUBSCRIPTION =
-	process.env.SUBSCRIPTION_NAME || "CertificatesSubscription";
+	process.env.RESPONSE_SUBSCRIPTION || "CertificatesResponseSubscription";
 
 const pubSubClient = new PubSub({ projectId: PROJECT_ID });
 
-async function publishRequest(
-	operationType: string,
-	data: Record<string, any>,
-) {
+async function setupResponseSubscription() {
+	const [topics] = await pubSubClient.getTopics();
+	if (!topics.some((t) => t.name.endsWith(RESPONSE_TOPIC))) {
+		await pubSubClient.createTopic(RESPONSE_TOPIC);
+		console.log(`🆕 Created response topic: ${RESPONSE_TOPIC}`);
+	}
+
+	const [subscriptions] = await pubSubClient.getSubscriptions();
+	if (!subscriptions.some((s) => s.name.endsWith(RESPONSE_SUBSCRIPTION))) {
+		await pubSubClient.topic(RESPONSE_TOPIC).createSubscription(RESPONSE_SUBSCRIPTION);
+		console.log(`🆕 Created response subscription: ${RESPONSE_SUBSCRIPTION}`);
+	}
+}
+
+async function publishRequest(operationType: string, data: Record<string, any>) {
 	const payload = JSON.stringify({ operationType, data });
 	const messageId = await pubSubClient.topic(REQUEST_TOPIC).publishMessage({
 		data: Buffer.from(payload),
@@ -22,8 +35,8 @@ async function publishRequest(
 	console.log(`📤 Published ${operationType} message (${messageId})`);
 }
 
-function waitForResponse(expectedType: string): Promise<any> {
-	return new Promise((resolve) => {
+function waitForResponse(expectedType: string, timeoutMs = 5000): Promise<any> {
+	return new Promise((resolve, reject) => {
 		const subscription = pubSubClient.subscription(RESPONSE_SUBSCRIPTION);
 
 		const handler = (message: any) => {
@@ -32,6 +45,7 @@ function waitForResponse(expectedType: string): Promise<any> {
 				if (parsed.type === expectedType) {
 					message.ack();
 					subscription.removeListener("message", handler);
+					clearTimeout(timeout);
 					resolve(parsed);
 				}
 			} catch (err) {
@@ -40,6 +54,11 @@ function waitForResponse(expectedType: string): Promise<any> {
 			}
 		};
 
+		const timeout = setTimeout(() => {
+			subscription.removeListener("message", handler);
+			reject(new Error(`Timeout waiting for ${expectedType}`));
+		}, timeoutMs);
+
 		subscription.on("message", handler);
 	});
 }
@@ -47,7 +66,9 @@ function waitForResponse(expectedType: string): Promise<any> {
 async function main() {
 	console.log("🔌 Connected to Google Pub/Sub\n");
 
-	console.log("1️⃣ Sending certificate...");
+	await setupResponseSubscription(); // Ensure response subscription exists
+
+	// 1️⃣ Upload
 	const productId = Math.floor(Math.random() * 1000);
 	const file = fs.readFileSync("test_to_send/spiderweb.pdf");
 	const fileBase64 = file.toString("base64");
@@ -59,16 +80,16 @@ async function main() {
 		console.log(`✅ Certificate uploaded successfully!`);
 	else console.log(`❌ Failed to upload certificate!`);
 
-	console.log("\n2️⃣ Listing certificates...");
+	// 2️⃣ List
 	await publishRequest("list", {});
 	const listResponse = await waitForResponse("listResponse");
 	console.log(
 		`✅ Found ${listResponse.total} certificates:`,
-		listResponse.productIds,
+		listResponse.productIds
 	);
 
+	// 3️⃣ Delete random certificate
 	if (listResponse.productIds.length > 0) {
-		console.log("\n3️⃣ Deleting a certificate...");
 		const randomId =
 			listResponse.productIds[
 				Math.floor(Math.random() * listResponse.productIds.length)

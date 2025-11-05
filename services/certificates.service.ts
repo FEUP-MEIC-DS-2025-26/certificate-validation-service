@@ -1,31 +1,28 @@
 import fs from "node:fs";
+import path from "node:path";
 import { PubSub } from "@google-cloud/pubsub";
 
 process.env.PUBSUB_EMULATOR_HOST = "localhost:8085";
+
 const PROJECT_ID = "test-project";
+const RESPONSE_TOPIC = "CertificatesResponseTopic";
 const pubSubClient = new PubSub({ projectId: PROJECT_ID });
 
-const CERTIFICATES_TOPIC = "CertificatesTopic";
+const CERT_DIR = path.join(__dirname, "..", "certificates");
 
 async function publishMessage(data: Record<string, any>) {
 	const dataBuffer = Buffer.from(JSON.stringify(data));
-	await pubSubClient.topic(CERTIFICATES_TOPIC).publish(dataBuffer);
+	await pubSubClient.topic(RESPONSE_TOPIC).publish(dataBuffer);
 }
 
 export class CertificatesService {
 	uploadCertificate(productId: number, file: Buffer): boolean {
 		try {
-			if (Math.random() > 0.3) {
-				fs.writeFileSync(`certificates/${productId}.pdf`, file);
-				console.log(`✔️ Uploaded certificate for productId: ${productId}`);
-				return true;
-			}
-			console.log(
-				`❌ Failed to upload certificate for productId: ${productId}`,
-			);
-			return false;
+			fs.writeFileSync(path.join(CERT_DIR, `${productId}.pdf`), file);
+			console.log(`✔️ Uploaded certificate for productId: ${productId}`);
+			return true;
 		} catch (err) {
-			console.error(`Error uploading certificate for ${productId}:`, err);
+			console.error(`❌ Failed to upload certificate for productId ${productId}:`, err);
 			return false;
 		}
 	}
@@ -33,24 +30,24 @@ export class CertificatesService {
 	listCertificates(): number[] {
 		try {
 			const files = fs
-				.readdirSync("certificates")
+				.readdirSync(CERT_DIR)
 				.filter((f) => f.endsWith(".pdf"))
 				.map((f) => Number(f.replace(".pdf", "")));
 			console.log(`✔️ Found ${files.length} certificates`);
 			return files;
 		} catch (err) {
-			console.error("Error listing certificates:", err);
+			console.error("❌ Error listing certificates:", err);
 			return [];
 		}
 	}
 
 	deleteCertificate(productId: number): boolean {
 		try {
-			fs.unlinkSync(`certificates/${productId}.pdf`);
+			fs.unlinkSync(path.join(CERT_DIR, `${productId}.pdf`));
 			console.log(`🗑️ Deleted certificate for productId: ${productId}`);
 			return true;
 		} catch (err) {
-			console.error(`Error deleting certificate for ${productId}:`, err);
+			console.error(`❌ Error deleting certificate for productId ${productId}:`, err);
 			return false;
 		}
 	}
@@ -59,6 +56,8 @@ export class CertificatesService {
 export async function handleCertificateMessage(message: any) {
 	try {
 		const parsed = JSON.parse(message.data.toString());
+		console.log("📩 Received message:", parsed);
+
 		const { operationType, data } = parsed;
 		const service = new CertificatesService();
 
@@ -66,32 +65,20 @@ export async function handleCertificateMessage(message: any) {
 			case "upload": {
 				const { productId, file } = data;
 				const success = service.uploadCertificate(productId, Buffer.from(file));
-				await publishMessage({
-					type: "uploadResponse",
-					productId,
-					success,
-				});
+				await publishMessage({ type: "uploadResponse", productId, success });
 				break;
 			}
 
 			case "list": {
 				const productIds = service.listCertificates();
-				await publishMessage({
-					type: "listResponse",
-					productIds,
-					total: productIds.length,
-				});
+				await publishMessage({ type: "listResponse", productIds, total: productIds.length });
 				break;
 			}
 
 			case "delete": {
 				const { productId } = data;
 				const success = service.deleteCertificate(productId);
-				await publishMessage({
-					type: "deleteResponse",
-					productId,
-					success,
-				});
+				await publishMessage({ type: "deleteResponse", productId, success });
 				break;
 			}
 
