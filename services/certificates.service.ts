@@ -22,7 +22,10 @@ export class CertificatesService {
 			console.log(`✔️ Uploaded certificate for productId: ${productId}`);
 			return true;
 		} catch (err) {
-			console.error(`❌ Failed to upload certificate for productId ${productId}:`, err);
+			console.error(
+				`❌ Failed to upload certificate for productId ${productId}:`,
+				err,
+			);
 			return false;
 		}
 	}
@@ -47,7 +50,10 @@ export class CertificatesService {
 			console.log(`🗑️ Deleted certificate for productId: ${productId}`);
 			return true;
 		} catch (err) {
-			console.error(`❌ Error deleting certificate for productId ${productId}:`, err);
+			console.error(
+				`❌ Error deleting certificate for productId ${productId}:`,
+				err,
+			);
 			return false;
 		}
 	}
@@ -71,7 +77,11 @@ export async function handleCertificateMessage(message: any) {
 
 			case "list": {
 				const productIds = service.listCertificates();
-				await publishMessage({ type: "listResponse", productIds, total: productIds.length });
+				await publishMessage({
+					type: "listResponse",
+					productIds,
+					total: productIds.length,
+				});
 				break;
 			}
 

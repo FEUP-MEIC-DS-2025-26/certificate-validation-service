@@ -7,7 +7,8 @@ dotenv.config();
 const PROJECT_ID = process.env.PROJECT_ID || "test-project";
 
 const REQUEST_TOPIC = process.env.REQUEST_TOPIC || "CertificatesRequestTopic";
-const RESPONSE_TOPIC = process.env.RESPONSE_TOPIC || "CertificatesResponseTopic";
+const RESPONSE_TOPIC =
+	process.env.RESPONSE_TOPIC || "CertificatesResponseTopic";
 const RESPONSE_SUBSCRIPTION =
 	process.env.RESPONSE_SUBSCRIPTION || "CertificatesResponseSubscription";
 
@@ -22,12 +23,17 @@ async function setupResponseSubscription() {
 
 	const [subscriptions] = await pubSubClient.getSubscriptions();
 	if (!subscriptions.some((s) => s.name.endsWith(RESPONSE_SUBSCRIPTION))) {
-		await pubSubClient.topic(RESPONSE_TOPIC).createSubscription(RESPONSE_SUBSCRIPTION);
+		await pubSubClient
+			.topic(RESPONSE_TOPIC)
+			.createSubscription(RESPONSE_SUBSCRIPTION);
 		console.log(`🆕 Created response subscription: ${RESPONSE_SUBSCRIPTION}`);
 	}
 }
 
-async function publishRequest(operationType: string, data: Record<string, any>) {
+async function publishRequest(
+	operationType: string,
+	data: Record<string, any>,
+) {
 	const payload = JSON.stringify({ operationType, data });
 	const messageId = await pubSubClient.topic(REQUEST_TOPIC).publishMessage({
 		data: Buffer.from(payload),
@@ -85,7 +91,7 @@ async function main() {
 	const listResponse = await waitForResponse("listResponse");
 	console.log(
 		`✅ Found ${listResponse.total} certificates:`,
-		listResponse.productIds
+		listResponse.productIds,
 	);
 
 	// 3️⃣ Delete random certificate
