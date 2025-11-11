@@ -1,6 +1,7 @@
 {
 	"dependencies": {
-		"@google-cloud/pubsub": "^5.2.0"
+		"@google-cloud/pubsub": "^5.2.0",
+		"dotenv": "^17.2.3"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.3.3"
