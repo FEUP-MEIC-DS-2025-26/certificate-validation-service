@@ -4,6 +4,8 @@ project_id = "made-in-portugal-dsle"
 # Storage Configuration
 bucket_name = "made-in-portugal-certificates"
 
+service_name = "certificate-validation"
+
 # Optional: Override defaults if needed
 # region              = "europe-southwest1"
 # bucket_location     = "EUROPE-WEST1"
