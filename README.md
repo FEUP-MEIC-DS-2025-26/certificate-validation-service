@@ -7,17 +7,27 @@
 bun install
 ```
 
-2. Start the server:
+2. Prepare the .env file:
+```bash
+cp .env.example .env
+```
+
+3. Run the PubSub Emulator:
+```bash
+docker compose -f pubsub-compose.yml up
+```
+
+4. Create a new terminal and start the server:
 ```bash
 bun run server
 ```
 
-3. In another terminal, run the client:
+5. In another terminal, run the client:
 ```bash
 bun run client
 ```
 
-4. Generate TypeScript code from Protocol Buffers:
+6. Generate TypeScript code from Protocol Buffers:
 ```bash
 protoc --plugin=protoc-gen-ts=./node_modules/.bin/protoc-gen-ts  --ts_out=./generated  --proto_path=./proto ./proto/*.proto
 ```
