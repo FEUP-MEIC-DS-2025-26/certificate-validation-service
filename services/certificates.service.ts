@@ -1,14 +1,17 @@
 import fs from "node:fs";
 import path from "node:path";
 import { PubSub } from "@google-cloud/pubsub";
+import dotenv from "dotenv";
 
-//import { text } from "node:stream/consumers";
+// Load local .env when present. Do NOT force the emulator host here so the
+// service can run in Cloud Run without attempting to connect to localhost:8085.
+dotenv.config();
 
-process.env.PUBSUB_EMULATOR_HOST = "localhost:8085";
-
-const PROJECT_ID = "test-project";
+const PROJECT_ID = process.env.PROJECT_ID || "test-project";
+// Allow using a centralized Pub/Sub in another project by setting PUBSUB_PROJECT_ID.
+const PUBSUB_PROJECT_ID = process.env.PUBSUB_PROJECT_ID || PROJECT_ID;
 const RESPONSE_TOPIC = "CertificatesResponseTopic";
-const pubSubClient = new PubSub({ projectId: PROJECT_ID });
+const pubSubClient = new PubSub({ projectId: PUBSUB_PROJECT_ID });
 
 const CERT_DIR = path.join(__dirname, "..", "certificates");
 

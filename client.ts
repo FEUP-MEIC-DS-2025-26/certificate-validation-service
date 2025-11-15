@@ -5,6 +5,8 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const PROJECT_ID = process.env.PROJECT_ID || "test-project";
+// If Pub/Sub is hosted in a different project, set PUBSUB_PROJECT_ID to point there.
+const PUBSUB_PROJECT_ID = process.env.PUBSUB_PROJECT_ID || PROJECT_ID;
 
 const REQUEST_TOPIC = process.env.REQUEST_TOPIC || "CertificatesRequestTopic";
 const RESPONSE_TOPIC =
@@ -12,7 +14,7 @@ const RESPONSE_TOPIC =
 const RESPONSE_SUBSCRIPTION =
 	process.env.RESPONSE_SUBSCRIPTION || "CertificatesResponseSubscription";
 
-const pubSubClient = new PubSub({ projectId: PROJECT_ID });
+const pubSubClient = new PubSub({ projectId: PUBSUB_PROJECT_ID });
 
 async function setupResponseSubscription() {
 	const [topics] = await pubSubClient.getTopics();
@@ -75,7 +77,7 @@ async function main() {
 	await setupResponseSubscription(); // Ensure response subscription exists
 
 	// 1️⃣ Upload
-	const productId = "EU-ISCC-Cert-DE105-82741913";
+	const productId = Math.floor(Math.random() * 1000);
 	const file = fs.readFileSync("test_to_send/spiderweb.pdf");
 	const fileBase64 = file.toString("base64");
 

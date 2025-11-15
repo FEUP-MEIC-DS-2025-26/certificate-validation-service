@@ -11,6 +11,7 @@ env:
   REPOSITORY: t01g01-registry
   IMAGE_NAME: certificate-validation
   REGISTRY: europe-southwest1-docker.pkg.dev
+  PUBSUB_PROJECT_ID: made-in-portugal-dsle
 
 jobs:
   build:
@@ -52,5 +53,6 @@ jobs:
             --region $REGION \
             --project $PROJECT_ID \
             --platform managed \
+            --set-env-vars PUBSUB_PROJECT_ID=$PUBSUB_PROJECT_ID \
             --quiet \
             --allow-unauthenticated
