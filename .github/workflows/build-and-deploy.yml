@@ -53,18 +53,33 @@ jobs:
             sudo apt-get update && sudo apt-get install -y jq
           fi
 
-          TF_JSON=$(terraform output -json 2>/dev/null) || {
-            echo "ERROR: terraform output -json failed. Dumping terraform output for debugging:";
-            terraform output || true;
+          # Capture terraform JSON output to a file and validate it's proper JSON.
+          TF_OUT_FILE=tfout.json
+          TF_ERR_FILE=tferr.log
+
+          terraform output -json > "$TF_OUT_FILE" 2>"$TF_ERR_FILE" || {
+            echo "ERROR: 'terraform output -json' failed. Showing stderr and stdout for debugging:";
+            echo "--- stderr ---";
+            sed -n '1,200p' "$TF_ERR_FILE" || true;
+            echo "--- stdout ---";
+            sed -n '1,200p' "$TF_OUT_FILE" || true;
             exit 1;
           }
 
-          BUCKET_NAME_VAL=$(echo "$TF_JSON" | jq -r '.bucket_name.value // empty')
-          SERVICE_ACCOUNT_EMAIL_VAL=$(echo "$TF_JSON" | jq -r '.service_account_email.value // empty')
+          # Quick sanity check: first non-space character should be '{'
+          FIRST_CHAR=$(sed -n '1p' "$TF_OUT_FILE" | sed -e 's/^[[:space:]]*//g' | cut -c1)
+          if [ "$FIRST_CHAR" != "{" ]; then
+            echo "ERROR: terraform output did not produce valid JSON. Dumping output:";
+            sed -n '1,200p' "$TF_OUT_FILE" || true;
+            exit 1;
+          fi
+
+          BUCKET_NAME_VAL=$(jq -r '.bucket_name.value // empty' "$TF_OUT_FILE")
+          SERVICE_ACCOUNT_EMAIL_VAL=$(jq -r '.service_account_email.value // empty' "$TF_OUT_FILE")
 
           if [ -z "$BUCKET_NAME_VAL" ] || [ -z "$SERVICE_ACCOUNT_EMAIL_VAL" ]; then
             echo "ERROR: required terraform outputs are missing. Full terraform output:";
-            echo "$TF_JSON" | jq . || true;
+            jq . "$TF_OUT_FILE" || true;
             exit 1;
           fi
 
