@@ -1,6 +1,6 @@
+import http from "node:http";
 import { PubSub } from "@google-cloud/pubsub";
 import dotenv from "dotenv";
-import http from "node:http";
 import { handleCertificateMessage } from "./services/certificates.service";
 
 // Load env (local .env or CI/Cloud Run env)

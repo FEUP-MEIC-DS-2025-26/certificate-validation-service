@@ -1,8 +1,7 @@
-import fs from "node:fs";
-import path from "node:path";
+// file-system and path not used anymore; storage is handled by GCS/Firestore
+import { Firestore } from "@google-cloud/firestore";
 import { PubSub } from "@google-cloud/pubsub";
 import { Storage } from "@google-cloud/storage";
-import { Firestore } from "@google-cloud/firestore";
 import dotenv from "dotenv";
 
 // Load local .env when present. Do NOT force the emulator host here so the
@@ -22,7 +21,7 @@ const FIRESTORE_COLLECTION = process.env.FIRESTORE_COLLECTION || "certificates";
 const storage = new Storage({ projectId: PUBSUB_PROJECT_ID });
 const firestore = new Firestore({ projectId: PUBSUB_PROJECT_ID });
 
-const CERT_DIR = path.join(__dirname, "..", "certificates");
+// local CERT_DIR removed; now using GCS for storage
 
 async function publishMessage(data: Record<string, any>) {
 	const dataBuffer = Buffer.from(JSON.stringify(data));
