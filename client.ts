@@ -75,7 +75,7 @@ async function main() {
 	await setupResponseSubscription(); // Ensure response subscription exists
 
 	// 1️⃣ Upload
-	const productId = Math.floor(Math.random() * 1000);
+	const productId = "EU-ISCC-Cert-DE105-82741913";
 	const file = fs.readFileSync("test_to_send/spiderweb.pdf");
 	const fileBase64 = file.toString("base64");
 
