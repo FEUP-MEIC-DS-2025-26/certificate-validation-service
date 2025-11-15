@@ -35,7 +35,9 @@ async function setupPubSub() {
 
 		const subscription = pubSubClient.subscription(REQUEST_SUBSCRIPTION);
 		subscription.on("message", handleCertificateMessage);
-		subscription.on("error", (err) => console.error("❌ Subscription error:", err));
+		subscription.on("error", (err) =>
+			console.error("❌ Subscription error:", err),
+		);
 
 		console.log(`✅ Server listening for messages on ${REQUEST_SUBSCRIPTION}`);
 	} catch (err) {
