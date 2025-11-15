@@ -69,9 +69,6 @@ jobs:
           docker push ${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.sha_tag }}
 
       - name: Deploy to Cloud Run
-        env:
-          PUBSUB_PROJECT_ID: ${{ secrets.PUBSUB_PROJECT_ID }}
-          BUCKET_NAME: ${{ secrets.BUCKET_NAME }}
         run: |
           gcloud run deploy certificate-validation \
             --image ${{ steps.vars.outputs.image }}:latest \
