@@ -67,6 +67,6 @@ jobs:
             --region $REGION \
             --project $PROJECT_ID \
             --platform managed \
-            --set-env-vars BUCKET_NAME=$BUCKET_NAME \
+            --set-env-vars BUCKET_NAME=$BUCKET_NAME,PROJECT_ID=$PROJECT_ID \
             --quiet \
             --allow-unauthenticated
