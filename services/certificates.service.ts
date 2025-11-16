@@ -67,7 +67,9 @@ export class CertificatesService {
 		productId: string | number,
 		file: Buffer,
 	): Promise<boolean> {
-		const [validUntil, validCertificate] = await verifyCertificate(String(productId));
+		const [validUntil, validCertificate] = await verifyCertificate(
+			String(productId),
+		);
 
 		if (!validCertificate) {
 			console.log(`❌ Certificate is invalid: ${productId}`);
