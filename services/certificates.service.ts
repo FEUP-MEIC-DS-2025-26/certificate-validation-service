@@ -1,32 +1,19 @@
 // file-system and path not used anymore; storage is handled by GCS/Firestore
 import { Firestore } from "@google-cloud/firestore";
-import { PubSub } from "@google-cloud/pubsub";
 import { Storage } from "@google-cloud/storage";
 import dotenv from "dotenv";
 
-// Load local .env when present. Do NOT force the emulator host here so the
-// service can run in Cloud Run without attempting to connect to localhost:8085.
+// Load local .env when present.
 dotenv.config();
 
 const PROJECT_ID = process.env.PROJECT_ID || "test-project";
-// Allow using a centralized Pub/Sub in another project by setting PUBSUB_PROJECT_ID.
-const PUBSUB_PROJECT_ID = process.env.PUBSUB_PROJECT_ID || PROJECT_ID;
-const RESPONSE_TOPIC = "CertificatesResponseTopic";
-const pubSubClient = new PubSub({ projectId: PUBSUB_PROJECT_ID });
 
 // Cloud Storage and Firestore configuration
 const BUCKET_NAME = process.env.BUCKET_NAME || "made-in-portugal-certificates";
 const FIRESTORE_COLLECTION = process.env.FIRESTORE_COLLECTION || "certificates";
 
-const storage = new Storage({ projectId: PUBSUB_PROJECT_ID });
-const firestore = new Firestore({ projectId: PUBSUB_PROJECT_ID });
-
-// local CERT_DIR removed; now using GCS for storage
-
-async function publishMessage(data: Record<string, any>) {
-	const dataBuffer = Buffer.from(JSON.stringify(data));
-	await pubSubClient.topic(RESPONSE_TOPIC).publish(dataBuffer);
-}
+const storage = new Storage({ projectId: PROJECT_ID });
+const firestore = new Firestore({ projectId: PROJECT_ID });
 
 async function verifyCertificate(productId: string) {
 	const requestPage = new Request(
@@ -156,53 +143,5 @@ export class CertificatesService {
 			);
 			return false;
 		}
-	}
-}
-
-export async function handleCertificateMessage(message: any) {
-	try {
-		const parsed = JSON.parse(message.data.toString());
-		console.log("📩 Received message:", parsed);
-
-		const { operationType, data } = parsed;
-		const service = new CertificatesService();
-
-		switch (operationType) {
-			case "upload": {
-				const { productId, file } = data;
-				// client sends file as base64 string; decode accordingly
-				const success = await service.uploadCertificate(
-					productId,
-					Buffer.from(file, "base64"),
-				);
-				await publishMessage({ type: "uploadResponse", productId, success });
-				break;
-			}
-
-			case "list": {
-				const productIds = await service.listCertificates();
-				await publishMessage({
-					type: "listResponse",
-					productIds,
-					total: productIds.length,
-				});
-				break;
-			}
-
-			case "delete": {
-				const { productId } = data;
-				const success = await service.deleteCertificate(productId);
-				await publishMessage({ type: "deleteResponse", productId, success });
-				break;
-			}
-
-			default:
-				console.warn("⚠️ Unknown operationType:", operationType);
-				break;
-		}
-	} catch (err) {
-		console.error("❌ Failed to process message:", err);
-	} finally {
-		message.ack();
 	}
 }
