@@ -49,9 +49,16 @@ async function verifyCertificate(productId: string) {
 		.then((blob) => blob.text())
 		.then((text) => JSON.parse(text));
 
-	return (
-		responseJson.data.length === 1 && responseJson.data[0][1] === productId
-	);
+	const validUntil = responseJson.data[0][8];
+	const validAfter = responseJson.data[0][7];
+
+	const validCertificate =
+		validUntil >= new Date().toISOString().split("T")[0] &&
+		validAfter <= new Date().toISOString().split("T")[0] &&
+		responseJson.data.length === 1 &&
+		responseJson.data[0][1] === productId;
+
+	return [validUntil, validCertificate];
 }
 
 export class CertificatesService {
@@ -60,7 +67,9 @@ export class CertificatesService {
 		productId: string | number,
 		file: Buffer,
 	): Promise<boolean> {
-		const validCertificate = await verifyCertificate(String(productId));
+		const [validUntil, validCertificate] = await verifyCertificate(
+			String(productId),
+		);
 
 		if (!validCertificate) {
 			console.log(`❌ Certificate is invalid: ${productId}`);
@@ -86,6 +95,7 @@ export class CertificatesService {
 					bucketPath: `gs://${BUCKET_NAME}/${objectName}`,
 					uploadedAt: new Date().toISOString(),
 					verified: true,
+					validUntil: validUntil,
 				});
 
 			console.log(`✔️ Uploaded certificate for productId: ${productId}`);
