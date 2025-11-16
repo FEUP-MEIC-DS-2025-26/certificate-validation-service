@@ -1,40 +1,111 @@
-import { PubSub } from "@google-cloud/pubsub";
+import http from "node:http";
 import dotenv from "dotenv";
-import { handleCertificateMessage } from "./services/certificates.service";
+import { CertificatesService } from "./services/certificates.service";
 
+// Load env (local .env or CI/Cloud Run env)
 dotenv.config();
 
-const PROJECT_ID = process.env.PROJECT_ID || "test-project";
-const REQUEST_TOPIC = process.env.REQUEST_TOPIC || "CertificatesRequestTopic";
-const REQUEST_SUBSCRIPTION =
-	process.env.REQUEST_SUBSCRIPTION || "CertificatesRequestSubscription";
+const service = new CertificatesService();
 
-const pubSubClient = new PubSub({ projectId: PROJECT_ID });
+// Minimal HTTP server so Cloud Run health/startup probes see a listening port.
+const PORT = Number(process.env.PORT || process.env.PORT_NUMBER || 8080);
+const server = http.createServer(async (req, res) => {
+	try {
+		const url = new URL(
+			req.url ?? "/",
+			`http://${req.headers.host ?? "localhost"}`,
+		);
+		const method = req.method ?? "GET";
 
-async function setupPubSub() {
-	// Ensure request topic exists
-	const [topics] = await pubSubClient.getTopics();
-	if (!topics.some((t) => t.name.endsWith(REQUEST_TOPIC))) {
-		await pubSubClient.createTopic(REQUEST_TOPIC);
-		console.log(`🆕 Created request topic: ${REQUEST_TOPIC}`);
+		// Health check
+		if (url.pathname === "/healthz" && method === "GET") {
+			res.writeHead(200, { "Content-Type": "text/plain" });
+			res.end("ok");
+			return;
+		}
+
+		// Upload certificate: POST /certificates/upload with JSON body { productId, file (base64) }
+		if (url.pathname === "/certificates/upload" && method === "POST") {
+			let body = "";
+			req.on("data", (chunk) => {
+				body += chunk;
+			});
+			req.on("end", async () => {
+				try {
+					const parsed = JSON.parse(body);
+					const { productId, file } = parsed ?? {};
+					if (!productId || !file) {
+						res.writeHead(400, { "Content-Type": "application/json" });
+						res.end(
+							JSON.stringify({
+								success: false,
+								message: "Missing productId or file",
+							}),
+						);
+						return;
+					}
+
+					const buffer = Buffer.from(file, "base64");
+					const success = await service.uploadCertificate(productId, buffer);
+
+					res.writeHead(success ? 200 : 400, {
+						"Content-Type": "application/json",
+					});
+					res.end(JSON.stringify({ success }));
+				} catch (err) {
+					console.error("Error in /certificates/upload:", err);
+					res.writeHead(500, { "Content-Type": "application/json" });
+					res.end(JSON.stringify({ success: false, error: "Internal error" }));
+				}
+			});
+			return;
+		}
+
+		// List certificates: GET /certificates
+		if (url.pathname === "/certificates" && method === "GET") {
+			const productIds = await service.listCertificates();
+			res.writeHead(200, { "Content-Type": "application/json" });
+			res.end(JSON.stringify({ productIds, total: productIds.length }));
+			return;
+		}
+
+		// Delete certificate: DELETE /certificates/:productId
+		if (url.pathname.startsWith("/certificates/") && method === "DELETE") {
+			const segments = url.pathname.split("/");
+			const productId = segments[2];
+			if (!productId) {
+				res.writeHead(400, { "Content-Type": "application/json" });
+				res.end(
+					JSON.stringify({ success: false, message: "Missing productId" }),
+				);
+				return;
+			}
+
+			const success = await service.deleteCertificate(productId);
+			res.writeHead(success ? 200 : 400, {
+				"Content-Type": "application/json",
+			});
+			res.end(JSON.stringify({ success }));
+			return;
+		}
+
+		// Simple root response for manual checks
+		if (method === "GET" && url.pathname === "/") {
+			res.writeHead(200, { "Content-Type": "text/plain" });
+			res.end("certificate-validation service running\n");
+			return;
+		}
+
+		// Not found
+		res.writeHead(404, { "Content-Type": "application/json" });
+		res.end(JSON.stringify({ error: "Not found" }));
+	} catch (err) {
+		console.error("Error handling request:", err);
+		res.writeHead(500, { "Content-Type": "application/json" });
+		res.end(JSON.stringify({ error: "Internal error" }));
 	}
+});
 
-	// Ensure request subscription exists
-	const [subscriptions] = await pubSubClient.getSubscriptions();
-	if (!subscriptions.some((s) => s.name.endsWith(REQUEST_SUBSCRIPTION))) {
-		await pubSubClient
-			.topic(REQUEST_TOPIC)
-			.createSubscription(REQUEST_SUBSCRIPTION);
-		console.log(`🆕 Created request subscription: ${REQUEST_SUBSCRIPTION}`);
-	}
-
-	const subscription = pubSubClient.subscription(REQUEST_SUBSCRIPTION);
-	subscription.on("message", handleCertificateMessage);
-	subscription.on("error", (err) =>
-		console.error("❌ Subscription error:", err),
-	);
-
-	console.log(`✅ Server listening for messages on ${REQUEST_SUBSCRIPTION}`);
-}
-
-setupPubSub();
+server.listen(PORT, () => {
+	console.log(`HTTP server listening on port ${PORT}`);
+});

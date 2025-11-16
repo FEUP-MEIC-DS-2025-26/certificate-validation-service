@@ -1,21 +1,19 @@
-import fs from "node:fs";
-import path from "node:path";
-import { PubSub } from "@google-cloud/pubsub";
+// file-system and path not used anymore; storage is handled by GCS/Firestore
+import { Firestore } from "@google-cloud/firestore";
+import { Storage } from "@google-cloud/storage";
+import dotenv from "dotenv";
 
-//import { text } from "node:stream/consumers";
+// Load local .env when present.
+dotenv.config();
 
-process.env.PUBSUB_EMULATOR_HOST = "localhost:8085";
+const PROJECT_ID = process.env.PROJECT_ID || "test-project";
 
-const PROJECT_ID = "test-project";
-const RESPONSE_TOPIC = "CertificatesResponseTopic";
-const pubSubClient = new PubSub({ projectId: PROJECT_ID });
+// Cloud Storage and Firestore configuration
+const BUCKET_NAME = process.env.BUCKET_NAME || "made-in-portugal-certificates";
+const FIRESTORE_COLLECTION = process.env.FIRESTORE_COLLECTION || "certificates";
 
-const CERT_DIR = path.join(__dirname, "..", "certificates");
-
-async function publishMessage(data: Record<string, any>) {
-	const dataBuffer = Buffer.from(JSON.stringify(data));
-	await pubSubClient.topic(RESPONSE_TOPIC).publish(dataBuffer);
-}
+const storage = new Storage({ projectId: PROJECT_ID });
+const firestore = new Firestore({ projectId: PROJECT_ID });
 
 async function verifyCertificate(productId: string) {
 	const requestPage = new Request(
@@ -57,45 +55,88 @@ async function verifyCertificate(productId: string) {
 }
 
 export class CertificatesService {
-	async uploadCertificate(productId: string, file: Buffer): Promise<boolean> {
-		const validCertificate = await verifyCertificate(productId);
+	// Uploads PDF buffer to GCS and writes metadata to Firestore
+	async uploadCertificate(
+		productId: string | number,
+		file: Buffer,
+	): Promise<boolean> {
+		const validCertificate = await verifyCertificate(String(productId));
 
-		if (validCertificate) {
-			try {
-				fs.writeFileSync(path.join(CERT_DIR, `${productId}.pdf`), file);
-				console.log(`✔️ Uploaded certificate for productId: ${productId}`);
-				return true;
-			} catch (err) {
-				console.error(
-					`❌ Failed to upload certificate for productId ${productId}:`,
-					err,
-				);
-				return false;
-			}
-		} else {
+		if (!validCertificate) {
 			console.log(`❌ Certificate is invalid: ${productId}`);
+			return false;
+		}
+
+		const productIdStr = String(productId);
+		const objectName = `certificates/${productIdStr}.pdf`;
+		const bucket = storage.bucket(BUCKET_NAME);
+		const gcsFile = bucket.file(objectName);
+
+		try {
+			await gcsFile.save(file, {
+				contentType: "application/pdf",
+			});
+
+			// Write metadata to Firestore
+			await firestore
+				.collection(FIRESTORE_COLLECTION)
+				.doc(productIdStr)
+				.set({
+					productId: productIdStr,
+					bucketPath: `gs://${BUCKET_NAME}/${objectName}`,
+					uploadedAt: new Date().toISOString(),
+					verified: true,
+				});
+
+			console.log(`✔️ Uploaded certificate for productId: ${productId}`);
+			return true;
+		} catch (err) {
+			console.error(
+				`❌ Failed to upload certificate for productId ${productId}:`,
+				err,
+			);
 			return false;
 		}
 	}
 
-	listCertificates(): number[] {
+	// List certificates by reading Firestore documents
+	async listCertificates(): Promise<string[]> {
 		try {
-			const files = fs
-				.readdirSync(CERT_DIR)
-				.filter((f) => f.endsWith(".pdf"))
-				.map((f) => Number(f.replace(".pdf", "")));
-			console.log(`✔️ Found ${files.length} certificates`);
-			return files;
+			const snapshot = await firestore.collection(FIRESTORE_COLLECTION).get();
+			const productIds: string[] = [];
+			snapshot.forEach((doc) => {
+				const data = doc.data();
+				if (data?.productId !== undefined)
+					productIds.push(String(data.productId));
+			});
+			console.log(`✔️ Found ${productIds.length} certificates`);
+			return productIds;
 		} catch (err) {
 			console.error("❌ Error listing certificates:", err);
 			return [];
 		}
 	}
 
-	deleteCertificate(productId: number): boolean {
+	// Delete certificate: remove object from GCS and Firestore doc
+	async deleteCertificate(productId: string | number): Promise<boolean> {
+		const productIdStr = String(productId);
+		const objectName = `certificates/${productIdStr}.pdf`;
+		const bucket = storage.bucket(BUCKET_NAME);
+		const gcsFile = bucket.file(objectName);
+
 		try {
-			fs.unlinkSync(path.join(CERT_DIR, `${productId}.pdf`));
-			console.log(`🗑️ Deleted certificate for productId: ${productId}`);
+			await gcsFile.delete().catch((e) => {
+				if (e.code === 404) return; // ignore not found
+				throw e;
+			});
+
+			await firestore
+				.collection(FIRESTORE_COLLECTION)
+				.doc(productIdStr)
+				.delete()
+				.catch(() => {});
+
+			console.log(`🗑️ Deleted certificate for productId: ${productIdStr}`);
 			return true;
 		} catch (err) {
 			console.error(
@@ -104,52 +145,5 @@ export class CertificatesService {
 			);
 			return false;
 		}
-	}
-}
-
-export async function handleCertificateMessage(message: any) {
-	try {
-		const parsed = JSON.parse(message.data.toString());
-		console.log("📩 Received message:", parsed);
-
-		const { operationType, data } = parsed;
-		const service = new CertificatesService();
-
-		switch (operationType) {
-			case "upload": {
-				const { productId, file } = data;
-				const success = await service.uploadCertificate(
-					productId,
-					Buffer.from(file),
-				);
-				await publishMessage({ type: "uploadResponse", productId, success });
-				break;
-			}
-
-			case "list": {
-				const productIds = service.listCertificates();
-				await publishMessage({
-					type: "listResponse",
-					productIds,
-					total: productIds.length,
-				});
-				break;
-			}
-
-			case "delete": {
-				const { productId } = data;
-				const success = service.deleteCertificate(productId);
-				await publishMessage({ type: "deleteResponse", productId, success });
-				break;
-			}
-
-			default:
-				console.warn("⚠️ Unknown operationType:", operationType);
-				break;
-		}
-	} catch (err) {
-		console.error("❌ Failed to process message:", err);
-	} finally {
-		message.ack();
 	}
 }
