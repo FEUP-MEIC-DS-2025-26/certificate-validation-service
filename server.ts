@@ -72,12 +72,11 @@ const server = http.createServer(async (req, res) => {
 		// Delete certificate: DELETE /certificates/:productId
 		if (url.pathname.startsWith("/certificates/") && method === "DELETE") {
 			const segments = url.pathname.split("/");
-			const productIdStr = segments[2];
-			const productId = Number(productIdStr);
-			if (!productId || Number.isNaN(productId)) {
+			const productId = segments[2];
+			if (!productId) {
 				res.writeHead(400, { "Content-Type": "application/json" });
 				res.end(
-					JSON.stringify({ success: false, message: "Invalid productId" }),
+					JSON.stringify({ success: false, message: "Missing productId" }),
 				);
 				return;
 			}

@@ -67,7 +67,8 @@ export class CertificatesService {
 			return false;
 		}
 
-		const objectName = `certificates/${productId}.pdf`;
+		const productIdStr = String(productId);
+		const objectName = `certificates/${productIdStr}.pdf`;
 		const bucket = storage.bucket(BUCKET_NAME);
 		const gcsFile = bucket.file(objectName);
 
@@ -79,9 +80,9 @@ export class CertificatesService {
 			// Write metadata to Firestore
 			await firestore
 				.collection(FIRESTORE_COLLECTION)
-				.doc(String(productId))
+				.doc(productIdStr)
 				.set({
-					productId: Number(productId),
+					productId: productIdStr,
 					bucketPath: `gs://${BUCKET_NAME}/${objectName}`,
 					uploadedAt: new Date().toISOString(),
 					verified: true,
@@ -99,14 +100,14 @@ export class CertificatesService {
 	}
 
 	// List certificates by reading Firestore documents
-	async listCertificates(): Promise<number[]> {
+	async listCertificates(): Promise<string[]> {
 		try {
 			const snapshot = await firestore.collection(FIRESTORE_COLLECTION).get();
-			const productIds: number[] = [];
+			const productIds: string[] = [];
 			snapshot.forEach((doc) => {
 				const data = doc.data();
 				if (data?.productId !== undefined)
-					productIds.push(Number(data.productId));
+					productIds.push(String(data.productId));
 			});
 			console.log(`✔️ Found ${productIds.length} certificates`);
 			return productIds;
@@ -117,8 +118,9 @@ export class CertificatesService {
 	}
 
 	// Delete certificate: remove object from GCS and Firestore doc
-	async deleteCertificate(productId: number): Promise<boolean> {
-		const objectName = `certificates/${productId}.pdf`;
+	async deleteCertificate(productId: string | number): Promise<boolean> {
+		const productIdStr = String(productId);
+		const objectName = `certificates/${productIdStr}.pdf`;
 		const bucket = storage.bucket(BUCKET_NAME);
 		const gcsFile = bucket.file(objectName);
 
@@ -130,11 +132,11 @@ export class CertificatesService {
 
 			await firestore
 				.collection(FIRESTORE_COLLECTION)
-				.doc(String(productId))
+				.doc(productIdStr)
 				.delete()
 				.catch(() => {});
 
-			console.log(`🗑️ Deleted certificate for productId: ${productId}`);
+			console.log(`🗑️ Deleted certificate for productId: ${productIdStr}`);
 			return true;
 		} catch (err) {
 			console.error(
