@@ -46,7 +46,11 @@ const server = http.createServer(async (req, res) => {
 					}
 
 					const buffer = Buffer.from(file, "base64");
-					const success = await service.uploadCertificate(productId, buffer, certificateId);
+					const success = await service.uploadCertificate(
+						productId,
+						buffer,
+						certificateId,
+					);
 
 					res.writeHead(success ? 200 : 400, {
 						"Content-Type": "application/json",

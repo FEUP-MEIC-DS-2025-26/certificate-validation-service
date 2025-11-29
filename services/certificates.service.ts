@@ -53,12 +53,19 @@ async function verifyCertificate(productId: string) {
 			.then((text) => JSON.parse(text));
 	} catch (err) {
 		// network/json parse error — treat as verification failure
-		console.warn("verifyCertificate: failed to fetch/parse ISCC response:", err);
+		console.warn(
+			"verifyCertificate: failed to fetch/parse ISCC response:",
+			err,
+		);
 		return [null, false];
 	}
 
 	// Ensure expected shape: { data: [ [...] ] }
-	if (!responseJson || !Array.isArray(responseJson.data) || responseJson.data.length === 0) {
+	if (
+		!responseJson ||
+		!Array.isArray(responseJson.data) ||
+		responseJson.data.length === 0
+	) {
 		// No results for the requested productId — not a server error but the certificate isn't verified
 		return [null, false];
 	}
@@ -138,7 +145,9 @@ export class CertificatesService {
 				{ merge: true },
 			);
 
-			console.log(`✔️ Uploaded certificate for productId: ${productId} (verified against certificateId: ${certificateId})`);
+			console.log(
+				`✔️ Uploaded certificate for productId: ${productId} (verified against certificateId: ${certificateId})`,
+			);
 			return true;
 		} catch (err) {
 			console.error(
