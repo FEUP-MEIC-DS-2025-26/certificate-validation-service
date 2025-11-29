@@ -33,20 +33,24 @@ const server = http.createServer(async (req, res) => {
 			req.on("end", async () => {
 				try {
 					const parsed = JSON.parse(body);
-					const { productId, file } = parsed ?? {};
-					if (!productId || !file) {
+					const { productId, file, certificateId } = parsed ?? {};
+					if (!productId || !file || !certificateId) {
 						res.writeHead(400, { "Content-Type": "application/json" });
 						res.end(
 							JSON.stringify({
 								success: false,
-								message: "Missing productId or file",
+								message: "Missing productId, file or certificateId",
 							}),
 						);
 						return;
 					}
 
 					const buffer = Buffer.from(file, "base64");
-					const success = await service.uploadCertificate(productId, buffer);
+					const success = await service.uploadCertificate(
+						productId,
+						buffer,
+						certificateId,
+					);
 
 					res.writeHead(success ? 200 : 400, {
 						"Content-Type": "application/json",
