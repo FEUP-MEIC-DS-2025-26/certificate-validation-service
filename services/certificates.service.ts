@@ -44,19 +44,39 @@ async function verifyCertificate(productId: string) {
 		},
 	);
 
-	const responseJson = await fetch(request)
-		.then((response) => response.blob())
-		.then((blob) => blob.text())
-		.then((text) => JSON.parse(text));
+	// fetch the JSON result and defensively validate its shape
+	let responseJson: any = null;
+	try {
+		responseJson = await fetch(request)
+			.then((response) => response.blob())
+			.then((blob) => blob.text())
+			.then((text) => JSON.parse(text));
+	} catch (err) {
+		// network/json parse error — treat as verification failure
+		console.warn("verifyCertificate: failed to fetch/parse ISCC response:", err);
+		return [null, false];
+	}
 
-	const validUntil = responseJson.data[0][8];
-	const validAfter = responseJson.data[0][7];
+	// Ensure expected shape: { data: [ [...] ] }
+	if (!responseJson || !Array.isArray(responseJson.data) || responseJson.data.length === 0) {
+		// No results for the requested productId — not a server error but the certificate isn't verified
+		return [null, false];
+	}
 
+	const row = responseJson.data[0];
+	if (!Array.isArray(row)) return [null, false];
+
+	const validUntil = row[8] ?? null;
+	const validAfter = row[7] ?? null;
+
+	const today = new Date().toISOString().split("T")[0];
 	const validCertificate =
-		validUntil >= new Date().toISOString().split("T")[0] &&
-		validAfter <= new Date().toISOString().split("T")[0] &&
+		validUntil !== null &&
+		validAfter !== null &&
+		validUntil >= today &&
+		validAfter <= today &&
 		responseJson.data.length === 1 &&
-		responseJson.data[0][1] === productId;
+		String(row[1]) === String(productId);
 
 	return [validUntil, validCertificate];
 }
@@ -66,10 +86,11 @@ export class CertificatesService {
 	async uploadCertificate(
 		productId: string | number,
 		file: Buffer,
+		certificateId: string | number,
 	): Promise<boolean> {
-		const [validUntil, validCertificate] = await verifyCertificate(
-			String(productId),
-		);
+		// certificateId is mandatory and is used to query ISCC
+		const searchTerm = String(certificateId);
+		const [validUntil, validCertificate] = await verifyCertificate(searchTerm);
 
 		if (!validCertificate) {
 			console.log(`❌ Certificate is invalid: ${productId}`);
@@ -117,7 +138,7 @@ export class CertificatesService {
 				{ merge: true },
 			);
 
-			console.log(`✔️ Uploaded certificate for productId: ${productId}`);
+			console.log(`✔️ Uploaded certificate for productId: ${productId} (verified against certificateId: ${certificateId})`);
 			return true;
 		} catch (err) {
 			console.error(
