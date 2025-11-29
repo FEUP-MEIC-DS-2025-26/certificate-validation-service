@@ -77,26 +77,45 @@ export class CertificatesService {
 		}
 
 		const productIdStr = String(productId);
-		const objectName = `certificates/${productIdStr}.pdf`;
+		// generate a per-certificate id so products can have many certificates
+		const certId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+		const objectName = `certificates/${productIdStr}_${certId}.pdf`;
 		const bucket = storage.bucket(BUCKET_NAME);
 		const gcsFile = bucket.file(objectName);
 
 		try {
-			await gcsFile.save(file, {
-				contentType: "application/pdf",
-			});
+				await gcsFile.save(file, {
+					contentType: "application/pdf",
+				});
 
-			// Write metadata to Firestore
-			await firestore
-				.collection(FIRESTORE_COLLECTION)
-				.doc(productIdStr)
-				.set({
-					productId: productIdStr,
+				// Write metadata to Firestore: keep one document per product with an array of certificates
+				const docRef = firestore
+					.collection(FIRESTORE_COLLECTION)
+					.doc(productIdStr);
+
+				const doc = await docRef.get();
+				const existing = doc.exists ? doc.data() : {};
+				const certificates = Array.isArray(existing?.certificates)
+					? existing.certificates
+					: [];
+
+				const certMeta = {
+					id: certId,
 					bucketPath: `gs://${BUCKET_NAME}/${objectName}`,
 					uploadedAt: new Date().toISOString(),
 					verified: true,
 					validUntil: validUntil,
-				});
+				};
+
+				certificates.push(certMeta);
+
+				await docRef.set(
+					{
+						productId: productIdStr,
+						certificates,
+					},
+					{ merge: true },
+				);
 
 			console.log(`✔️ Uploaded certificate for productId: ${productId}`);
 			return true;
@@ -113,14 +132,16 @@ export class CertificatesService {
 	async listCertificates(): Promise<string[]> {
 		try {
 			const snapshot = await firestore.collection(FIRESTORE_COLLECTION).get();
-			const productIds: string[] = [];
+			const products: Array<{ productId: string; certificates: any[] }> = [];
 			snapshot.forEach((doc) => {
-				const data = doc.data();
-				if (data?.productId !== undefined)
-					productIds.push(String(data.productId));
+				const data = doc.data() || {};
+				products.push({
+					productId: String(data.productId ?? doc.id),
+					certificates: Array.isArray(data.certificates) ? data.certificates : [],
+				});
 			});
-			console.log(`✔️ Found ${productIds.length} certificates`);
-			return productIds;
+			console.log(`✔️ Found ${products.length} products`);
+			return products.map((p) => p.productId);
 		} catch (err) {
 			console.error("❌ Error listing certificates:", err);
 			return [];
@@ -128,31 +149,77 @@ export class CertificatesService {
 	}
 
 	// Delete certificate: remove object from GCS and Firestore doc
+	// Delete all certificates for a product (remove files from GCS and delete product doc)
 	async deleteCertificate(productId: string | number): Promise<boolean> {
 		const productIdStr = String(productId);
-		const objectName = `certificates/${productIdStr}.pdf`;
 		const bucket = storage.bucket(BUCKET_NAME);
-		const gcsFile = bucket.file(objectName);
 
 		try {
-			await gcsFile.delete().catch((e) => {
-				if (e.code === 404) return; // ignore not found
-				throw e;
-			});
+			const docRef = firestore.collection(FIRESTORE_COLLECTION).doc(productIdStr);
+			const doc = await docRef.get();
+			if (doc.exists) {
+				const data = doc.data() || {};
+				const certificates = Array.isArray(data.certificates) ? data.certificates : [];
+				for (const cert of certificates) {
+					if (cert?.bucketPath) {
+						// bucketPath is like gs://<BUCKET_NAME>/certificates/..., extract object name
+						const path = String(cert.bucketPath);
+						const prefix = `gs://${BUCKET_NAME}/`;
+						if (path.startsWith(prefix)) {
+							const objectName = path.slice(prefix.length);
+							await bucket.file(objectName).delete().catch((e) => {
+								if (e.code === 404) return; // ignore not found
+								throw e;
+							});
+						}
+					}
+				}
+			}
 
-			await firestore
-				.collection(FIRESTORE_COLLECTION)
-				.doc(productIdStr)
-				.delete()
-				.catch(() => {});
+			await firestore.collection(FIRESTORE_COLLECTION).doc(productIdStr).delete().catch(() => {});
 
-			console.log(`🗑️ Deleted certificate for productId: ${productIdStr}`);
+			console.log(`🗑️ Deleted certificates for productId: ${productIdStr}`);
 			return true;
 		} catch (err) {
-			console.error(
-				`❌ Error deleting certificate for productId ${productId}:`,
-				err,
-			);
+			console.error(`❌ Error deleting certificates for productId ${productId}:`, err);
+			return false;
+		}
+	}
+
+	// Delete a single certificate from a product by certificate id
+	async deleteProductCertificate(productId: string | number, certId: string): Promise<boolean> {
+		const productIdStr = String(productId);
+		const bucket = storage.bucket(BUCKET_NAME);
+		try {
+			const docRef = firestore.collection(FIRESTORE_COLLECTION).doc(productIdStr);
+			const doc = await docRef.get();
+			if (!doc.exists) return false;
+			const data = doc.data() || {};
+			const certificates = Array.isArray(data.certificates) ? data.certificates : [];
+			const cert = certificates.find((c: any) => String(c.id) === String(certId));
+			if (!cert) return false;
+			if (cert.bucketPath) {
+				const path = String(cert.bucketPath);
+				const prefix = `gs://${BUCKET_NAME}/`;
+				if (path.startsWith(prefix)) {
+					const objectName = path.slice(prefix.length);
+					await bucket.file(objectName).delete().catch((e) => {
+						if (e.code === 404) return; // ignore not found
+						throw e;
+					});
+				}
+			}
+			const updated = certificates.filter((c: any) => String(c.id) !== String(certId));
+			if (updated.length > 0) {
+				await docRef.set({ certificates: updated }, { merge: true });
+			} else {
+				// no certificates left: delete product doc
+				await docRef.delete().catch(() => {});
+			}
+			console.log(`🗑️ Deleted certificate ${certId} for productId: ${productIdStr}`);
+			return true;
+		} catch (err) {
+			console.error(`❌ Error deleting certificate ${certId} for productId ${productId}:`, err);
 			return false;
 		}
 	}
