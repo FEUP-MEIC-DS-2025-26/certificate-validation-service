@@ -12,6 +12,8 @@ const PROJECT_ID = process.env.PROJECT_ID || "test-project";
 const BUCKET_NAME = process.env.BUCKET_NAME || "made-in-portugal-certificates";
 const FIRESTORE_COLLECTION = process.env.FIRESTORE_COLLECTION || "certificates";
 
+//process.env.FIRESTORE_EMULATOR_HOST="localhost:PORT";
+
 const storage = new Storage({ projectId: PROJECT_ID });
 const firestore = new Firestore({ projectId: PROJECT_ID });
 
@@ -174,6 +176,29 @@ export class CertificatesService {
 			});
 			console.log(`✔️ Found ${products.length} products`);
 			return products.map((p) => p.productId);
+		} catch (err) {
+			console.error("❌ Error listing certificates:", err);
+			return [];
+		}
+	}
+
+	// List certificates for a product by reading Firestore documents
+	async listProductCertificates(productId: string | number): Promise<Object[]> {
+		try {
+			const productIdStr = String(productId);
+
+			const docRef = firestore
+				.collection(FIRESTORE_COLLECTION)
+				.doc(productIdStr);
+
+			const doc = await docRef.get();
+			const existing = doc.exists ? doc.data() : {};
+			const certificates = Array.isArray(existing?.certificates)
+				? existing.certificates
+				: [];
+
+			console.log(`✔️ Found ${certificates.length} certificates`);
+			return certificates;
 		} catch (err) {
 			console.error("❌ Error listing certificates:", err);
 			return [];

@@ -73,6 +73,28 @@ const server = http.createServer(async (req, res) => {
 			return;
 		}
 
+		if (url.pathname.startsWith("/certificates/") && method === "GET") {
+			const segments = url.pathname.split("/");
+			const productId = segments[2];
+			if (!productId) {
+				res.writeHead(400, { "Content-Type": "application/json" });
+				res.end(
+					JSON.stringify({ success: false, message: "Missing productId" }),
+				);
+				return;
+			}
+
+			const certificates = await service.listProductCertificates(productId);
+			let responseCode: number;
+			if (certificates.length) responseCode = 200;
+			else responseCode = 404;
+			res.writeHead(responseCode, {
+				"Content-Type": "application/json",
+			});
+			res.end(JSON.stringify({ certificates }));
+			return;
+		}
+
 		// Delete certificate: DELETE /certificates/:productId
 		if (url.pathname.startsWith("/certificates/") && method === "DELETE") {
 			const segments = url.pathname.split("/");
