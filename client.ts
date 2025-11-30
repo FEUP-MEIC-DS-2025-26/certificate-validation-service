@@ -1,6 +1,6 @@
+import fs from "node:fs";
 import { PubSub } from "@google-cloud/pubsub";
 import dotenv from "dotenv";
-import fs from "node:fs";
 
 dotenv.config();
 
@@ -17,7 +17,7 @@ const RESPONSE_SUBSCRIPTION =
 const pubSubClient = new PubSub({ projectId: PUBSUB_PROJECT_ID });
 
 async function setupResponseSubscription() {
-	console.log('getting topics')
+	console.log("getting topics");
 	const [topics] = await pubSubClient.getTopics();
 	if (!topics.some((t) => t.name.endsWith(RESPONSE_TOPIC))) {
 		await pubSubClient.createTopic(RESPONSE_TOPIC);
@@ -25,7 +25,7 @@ async function setupResponseSubscription() {
 	}
 
 	const [subscriptions] = await pubSubClient.getSubscriptions();
-	console.log(subscriptions)
+	console.log(subscriptions);
 	if (!subscriptions.some((s) => s.name.endsWith(RESPONSE_SUBSCRIPTION))) {
 		await pubSubClient
 			.topic(RESPONSE_TOPIC)
@@ -45,33 +45,34 @@ async function publishRequest(
 	console.log(`📤 Published ${operationType} message (${messageId})`);
 }
 
-
 function waitForResponse(expectedType: string): Promise<any> {
-	const timeoutMs = 10000
+	const timeoutMs = 10000;
 	return new Promise((resolve, reject) => {
 		const subscription = pubSubClient.subscription(RESPONSE_SUBSCRIPTION);
 
 		const handle = async (message: any) => {
-					try {
-						console.log("started parsing")
-						const jsonString = message.data.toString();
-						console.log(expectedType)
-						console.log(jsonString)
-						const parsed = JSON.parse(jsonString);
-						message.ack();
-						if (parsed.operationType === expectedType) {
-							console.log("resolving")
-							subscription.removeListener("message",handle);
-							clearTimeout(timeout);
-							resolve(parsed);
-						} else {
-							console.log(`Wrong expectedType (expected:${expectedType}, actual: ${parsed.operationType})`)
-						}
-					} catch (err) {
-						console.error("❌ Failed to parse response:", err);
-						// message.nack();
-					}
-		}
+			try {
+				console.log("started parsing");
+				const jsonString = message.data.toString();
+				console.log(expectedType);
+				console.log(jsonString);
+				const parsed = JSON.parse(jsonString);
+				message.ack();
+				if (parsed.operationType === expectedType) {
+					console.log("resolving");
+					subscription.removeListener("message", handle);
+					clearTimeout(timeout);
+					resolve(parsed);
+				} else {
+					console.log(
+						`Wrong expectedType (expected:${expectedType}, actual: ${parsed.operationType})`,
+					);
+				}
+			} catch (err) {
+				console.error("❌ Failed to parse response:", err);
+				// message.nack();
+			}
+		};
 
 		const timeout = setTimeout(() => {
 			//subscription.removeListener("message", handler);
@@ -79,7 +80,7 @@ function waitForResponse(expectedType: string): Promise<any> {
 		}, timeoutMs);
 
 		// todo: message is not being processed
-		console.log(`listening on ${RESPONSE_SUBSCRIPTION}`)
+		console.log(`listening on ${RESPONSE_SUBSCRIPTION}`);
 		subscription.on("message", handle);
 	});
 }
@@ -95,10 +96,14 @@ async function main() {
 	const file = fs.readFileSync("test_to_send/spiderweb.pdf");
 	const fileBase64 = file.toString("base64");
 
-	await publishRequest("upload", { productId, file: fileBase64,certificateId });
+	await publishRequest("upload", {
+		productId,
+		file: fileBase64,
+		certificateId,
+	});
 	const uploadResponse = await waitForResponse("uploadResponse");
 
-	if (uploadResponse.status == true)
+	if (uploadResponse.status === true)
 		console.log(`✅ Certificate uploaded successfully!`);
 	else console.log(`❌ Failed to upload certificate!`);
 
@@ -119,7 +124,7 @@ async function main() {
 		await publishRequest("delete", { productId: randomId });
 		const deleteResponse = await waitForResponse("deleteResponse");
 
-		if (deleteResponse.status == true)
+		if (deleteResponse.status === true)
 			console.log(`✅ Certificate with ID ${randomId} deleted successfully!`);
 		else console.log(`❌ Failed to delete certificate with ID ${randomId}`);
 	} else {

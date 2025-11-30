@@ -1,7 +1,7 @@
 import http from "node:http";
 import { PubSub } from "@google-cloud/pubsub";
-import { CommunicationService } from "./services/communication.service"
 import dotenv from "dotenv"; // import { handleCertificateMessage } from "./services/certificates.service";
+import { CommunicationService } from "./services/communication.service";
 
 // Load env (local .env or CI/Cloud Run env)
 dotenv.config();
@@ -49,15 +49,15 @@ async function setupPubSub() {
 				payload.operationType,
 				payload.data.productId,
 				payload.data.file,
-				payload.data.certificateId
+				payload.data.certificateId,
 			);
 			message.ack();
 			const responsePayload = JSON.stringify(response);
 			pubSubClient.topic(RESPONSE_TOPIC).publishMessage({
-				data: Buffer.from(responsePayload)
-			})
-			console.log(`sent response to ${RESPONSE_TOPIC}`)
-			console.log(responsePayload)
+				data: Buffer.from(responsePayload),
+			});
+			console.log(`sent response to ${RESPONSE_TOPIC}`);
+			console.log(responsePayload);
 		});
 		subscription.on("error", (err) =>
 			console.error("❌ Subscription error:", err),

@@ -3,37 +3,40 @@ import { CertificatesService } from "./certificates.service";
 const certificatesService = new CertificatesService();
 
 export class CommunicationService {
-	async handleRequest (
+	async handleRequest(
 		requestType: string,
 		productId: string = "",
 		file: any = null,
-		certificateId: string = ""
-	) : Promise<any> {
+		certificateId: string = "",
+	): Promise<any> {
 		switch (requestType) {
-			case "upload":
+			case "upload": {
 				const status = await certificatesService.uploadCertificate(
 					productId,
 					file,
-					certificateId
+					certificateId,
 				);
 				return {
 					operationType: "uploadResponse",
 					status: status,
 				};
-			case "delete":
+			}
+			case "delete": {
 				const deleteStatus =
 					await certificatesService.deleteCertificate(productId);
 				return {
 					operationType: "deleteResponse",
 					status: deleteStatus,
 				};
-			case "list":
+			}
+			case "list": {
 				const productIds = await certificatesService.listCertificates();
 				return {
 					operationType: "listResponse",
 					productIds: productIds,
-					total: productIds.length
+					total: productIds.length,
 				};
+			}
 		}
-	};
+	}
 }
