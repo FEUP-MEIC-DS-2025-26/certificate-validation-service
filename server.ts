@@ -35,7 +35,10 @@ const server = http.createServer(async (req, res) => {
 					const parsed = JSON.parse(body);
 					const { productId, file, certificateId } = parsed ?? {};
 					if (!productId || !file || !certificateId) {
-						res.writeHead(400, { "Content-Type": "application/json" });
+						res.writeHead(400, {
+							"Content-Type": "application/json",
+							"Access-Control-Allow-Origin": "*",
+						});
 						res.end(
 							JSON.stringify({
 								success: false,
@@ -54,11 +57,15 @@ const server = http.createServer(async (req, res) => {
 
 					res.writeHead(success ? 200 : 400, {
 						"Content-Type": "application/json",
+						"Access-Control-Allow-Origin": "*",
 					});
 					res.end(JSON.stringify({ success }));
 				} catch (err) {
 					console.error("Error in /certificates/upload:", err);
-					res.writeHead(500, { "Content-Type": "application/json" });
+					res.writeHead(500, {
+						"Content-Type": "application/json",
+						"Access-Control-Allow-Origin": "*",
+					});
 					res.end(JSON.stringify({ success: false, error: "Internal error" }));
 				}
 			});
@@ -68,7 +75,10 @@ const server = http.createServer(async (req, res) => {
 		// List certificates: GET /certificates
 		if (url.pathname === "/certificates" && method === "GET") {
 			const productIds = await service.listCertificates();
-			res.writeHead(200, { "Content-Type": "application/json" });
+			res.writeHead(200, {
+				"Content-Type": "application/json",
+				"Access-Control-Allow-Origin": "*",
+			});
 			res.end(JSON.stringify({ productIds, total: productIds.length }));
 			return;
 		}
@@ -77,7 +87,10 @@ const server = http.createServer(async (req, res) => {
 			const segments = url.pathname.split("/");
 			const productId = segments[2];
 			if (!productId) {
-				res.writeHead(400, { "Content-Type": "application/json" });
+				res.writeHead(400, {
+					"Content-Type": "application/json",
+					"Access-Control-Allow-Origin": "*",
+				});
 				res.end(
 					JSON.stringify({ success: false, message: "Missing productId" }),
 				);
@@ -90,6 +103,7 @@ const server = http.createServer(async (req, res) => {
 			else responseCode = 404;
 			res.writeHead(responseCode, {
 				"Content-Type": "application/json",
+				"Access-Control-Allow-Origin": "*",
 			});
 			res.end(JSON.stringify({ certificates }));
 			return;
@@ -101,7 +115,10 @@ const server = http.createServer(async (req, res) => {
 			const productId = segments[2];
 			const certId = segments[3];
 			if (!productId || !certId) {
-				res.writeHead(400, { "Content-Type": "application/json" });
+				res.writeHead(400, {
+					"Content-Type": "application/json",
+					"Access-Control-Allow-Origin": "*",
+				});
 				res.end(
 					JSON.stringify({
 						success: false,
@@ -114,6 +131,7 @@ const server = http.createServer(async (req, res) => {
 			const success = await service.deleteProductCertificate(productId, certId);
 			res.writeHead(success ? 200 : 400, {
 				"Content-Type": "application/json",
+				"Access-Control-Allow-Origin": "*",
 			});
 			res.end(JSON.stringify({ success }));
 			return;
@@ -127,11 +145,17 @@ const server = http.createServer(async (req, res) => {
 		}
 
 		// Not found
-		res.writeHead(404, { "Content-Type": "application/json" });
+		res.writeHead(404, {
+			"Content-Type": "application/json",
+			"Access-Control-Allow-Origin": "*",
+		});
 		res.end(JSON.stringify({ error: "Not found" }));
 	} catch (err) {
 		console.error("Error handling request:", err);
-		res.writeHead(500, { "Content-Type": "application/json" });
+		res.writeHead(500, {
+			"Content-Type": "application/json",
+			"Access-Control-Allow-Origin": "*",
+		});
 		res.end(JSON.stringify({ error: "Internal error" }));
 	}
 });
