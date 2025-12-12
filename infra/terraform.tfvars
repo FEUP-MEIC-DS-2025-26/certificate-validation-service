@@ -2,9 +2,9 @@
 project_id = "made-in-portugal-dsle"
 
 # Storage Configuration
-bucket_name = "made-in-portugal-certificates"
+bucket_name = "made-in-portugal-certificates-pubsub"
 
-service_name = "certificate-validation"
+service_name = "certificate-validation-pubsub"
 
 # Optional: Override defaults if needed
 # region              = "europe-southwest1"

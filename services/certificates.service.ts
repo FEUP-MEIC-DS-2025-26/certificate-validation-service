@@ -12,10 +12,20 @@ const PROJECT_ID = process.env.PROJECT_ID || "test-project";
 const BUCKET_NAME = process.env.BUCKET_NAME || "made-in-portugal-certificates";
 const FIRESTORE_COLLECTION = process.env.FIRESTORE_COLLECTION || "certificates";
 
+// Development mode flag - use mock storage when Firestore is not available
+const USE_MOCK_STORAGE =
+	process.env.USE_MOCK_STORAGE === "true" ||
+	PROJECT_ID !== "made-in-portugal-dsle";
+
 //process.env.FIRESTORE_EMULATOR_HOST="localhost:PORT";
 
 const storage = new Storage({ projectId: PROJECT_ID });
-const firestore = new Firestore({ projectId: PROJECT_ID });
+const firestore = USE_MOCK_STORAGE
+	? null
+	: new Firestore({ projectId: PROJECT_ID });
+
+// Mock in-memory storage for development
+const mockStorage: Map<string, any> = new Map();
 
 async function verifyCertificate(productId: string) {
 	const requestPage = new Request(
@@ -114,38 +124,56 @@ export class CertificatesService {
 		const gcsFile = bucket.file(objectName);
 
 		try {
-			await gcsFile.save(file, {
-				contentType: "application/pdf",
-			});
+			if (!USE_MOCK_STORAGE) {
+				await gcsFile.save(file, {
+					contentType: "application/pdf",
+				});
+			}
 
-			// Write metadata to Firestore: keep one document per product with an array of certificates
-			const docRef = firestore
-				.collection(FIRESTORE_COLLECTION)
-				.doc(productIdStr);
-
-			const doc = await docRef.get();
-			const existing = doc.exists ? doc.data() : {};
-			const certificates = Array.isArray(existing?.certificates)
-				? existing.certificates
-				: [];
-
+			// Write metadata to Firestore or mock storage
 			const certMeta = {
 				id: certId,
-				bucketPath: `gs://${BUCKET_NAME}/${objectName}`,
+				bucketPath: USE_MOCK_STORAGE
+					? `mock://certificates/${objectName}`
+					: `gs://${BUCKET_NAME}/${objectName}`,
 				uploadedAt: new Date().toISOString(),
 				verified: true,
 				validUntil: validUntil,
 			};
 
-			certificates.push(certMeta);
-
-			await docRef.set(
-				{
+			if (USE_MOCK_STORAGE) {
+				// Mock storage implementation
+				const existing = mockStorage.get(productIdStr) || {
 					productId: productIdStr,
-					certificates,
-				},
-				{ merge: true },
-			);
+					certificates: [],
+				};
+				existing.certificates.push(certMeta);
+				mockStorage.set(productIdStr, existing);
+				console.log(
+					`🧪 [MOCK] Stored certificate for productId: ${productIdStr}`,
+				);
+			} else {
+				// Firestore implementation
+				const docRef = firestore
+					?.collection(FIRESTORE_COLLECTION)
+					.doc(productIdStr);
+
+				const doc = await docRef.get();
+				const existing = doc.exists ? doc.data() : {};
+				const certificates = Array.isArray(existing?.certificates)
+					? existing.certificates
+					: [];
+
+				certificates.push(certMeta);
+
+				await docRef.set(
+					{
+						productId: productIdStr,
+						certificates,
+					},
+					{ merge: true },
+				);
+			}
 
 			console.log(
 				`✔️ Uploaded certificate for productId: ${productId} (verified against certificateId: ${certificateId})`,
@@ -160,45 +188,68 @@ export class CertificatesService {
 		}
 	}
 
-	// List certificates by reading Firestore documents
+	// List certificates by reading Firestore documents or mock storage
 	async listCertificates(): Promise<string[]> {
 		try {
-			const snapshot = await firestore.collection(FIRESTORE_COLLECTION).get();
-			const products: Array<{ productId: string; certificates: any[] }> = [];
-			snapshot.forEach((doc) => {
-				const data = doc.data() || {};
-				products.push({
-					productId: String(data.productId ?? doc.id),
-					certificates: Array.isArray(data.certificates)
-						? data.certificates
-						: [],
+			if (USE_MOCK_STORAGE) {
+				// Mock storage implementation
+				const products = Array.from(mockStorage.values());
+				console.log(`🧪 [MOCK] Found ${products.length} products`);
+				return products.map((p) => p.productId);
+			} else {
+				// Firestore implementation
+				const snapshot = await firestore
+					?.collection(FIRESTORE_COLLECTION)
+					.get();
+				const products: Array<{ productId: string; certificates: any[] }> = [];
+				snapshot.forEach((doc) => {
+					const data = doc.data() || {};
+					products.push({
+						productId: String(data.productId ?? doc.id),
+						certificates: Array.isArray(data.certificates)
+							? data.certificates
+							: [],
+					});
 				});
-			});
-			console.log(`✔️ Found ${products.length} products`);
-			return products.map((p) => p.productId);
+				console.log(`✔️ Found ${products.length} products`);
+				return products.map((p) => p.productId);
+			}
 		} catch (err) {
 			console.error("❌ Error listing certificates:", err);
 			return [];
 		}
 	}
 
-	// List certificates for a product by reading Firestore documents
+	// List certificates for a product by reading Firestore documents or mock storage
 	async listProductCertificates(productId: string | number): Promise<Object[]> {
 		try {
 			const productIdStr = String(productId);
 
-			const docRef = firestore
-				.collection(FIRESTORE_COLLECTION)
-				.doc(productIdStr);
+			if (USE_MOCK_STORAGE) {
+				// Mock storage implementation
+				const existing = mockStorage.get(productIdStr) || { certificates: [] };
+				const certificates = Array.isArray(existing.certificates)
+					? existing.certificates
+					: [];
+				console.log(
+					`🧪 [MOCK] Found ${certificates.length} certificates for product ${productIdStr}`,
+				);
+				return certificates;
+			} else {
+				// Firestore implementation
+				const docRef = firestore
+					?.collection(FIRESTORE_COLLECTION)
+					.doc(productIdStr);
 
-			const doc = await docRef.get();
-			const existing = doc.exists ? doc.data() : {};
-			const certificates = Array.isArray(existing?.certificates)
-				? existing.certificates
-				: [];
+				const doc = await docRef.get();
+				const existing = doc.exists ? doc.data() : {};
+				const certificates = Array.isArray(existing?.certificates)
+					? existing.certificates
+					: [];
 
-			console.log(`✔️ Found ${certificates.length} certificates`);
-			return certificates;
+				console.log(`✔️ Found ${certificates.length} certificates`);
+				return certificates;
+			}
 		} catch (err) {
 			console.error("❌ Error listing certificates:", err);
 			return [];
@@ -209,45 +260,55 @@ export class CertificatesService {
 	// Delete all certificates for a product (remove files from GCS and delete product doc)
 	async deleteCertificate(productId: string | number): Promise<boolean> {
 		const productIdStr = String(productId);
-		const bucket = storage.bucket(BUCKET_NAME);
 
 		try {
-			const docRef = firestore
-				.collection(FIRESTORE_COLLECTION)
-				.doc(productIdStr);
-			const doc = await docRef.get();
-			if (doc.exists) {
-				const data = doc.data() || {};
-				const certificates = Array.isArray(data.certificates)
-					? data.certificates
-					: [];
-				for (const cert of certificates) {
-					if (cert?.bucketPath) {
-						// bucketPath is like gs://<BUCKET_NAME>/certificates/..., extract object name
-						const path = String(cert.bucketPath);
-						const prefix = `gs://${BUCKET_NAME}/`;
-						if (path.startsWith(prefix)) {
-							const objectName = path.slice(prefix.length);
-							await bucket
-								.file(objectName)
-								.delete()
-								.catch((e) => {
-									if (e.code === 404) return; // ignore not found
-									throw e;
-								});
+			if (USE_MOCK_STORAGE) {
+				// Mock storage implementation
+				mockStorage.delete(productIdStr);
+				console.log(
+					`🧪 [MOCK] Deleted all certificates for productId: ${productIdStr}`,
+				);
+				return true;
+			} else {
+				// Firestore implementation
+				const bucket = storage.bucket(BUCKET_NAME);
+				const docRef = firestore
+					?.collection(FIRESTORE_COLLECTION)
+					.doc(productIdStr);
+				const doc = await docRef.get();
+				if (doc.exists) {
+					const data = doc.data() || {};
+					const certificates = Array.isArray(data.certificates)
+						? data.certificates
+						: [];
+					for (const cert of certificates) {
+						if (cert?.bucketPath) {
+							// bucketPath is like gs://<BUCKET_NAME>/certificates/..., extract object name
+							const path = String(cert.bucketPath);
+							const prefix = `gs://${BUCKET_NAME}/`;
+							if (path.startsWith(prefix)) {
+								const objectName = path.slice(prefix.length);
+								await bucket
+									.file(objectName)
+									.delete()
+									.catch((e) => {
+										if (e.code === 404) return; // ignore not found
+										throw e;
+									});
+							}
 						}
 					}
 				}
+
+				await firestore
+					?.collection(FIRESTORE_COLLECTION)
+					.doc(productIdStr)
+					.delete()
+					.catch(() => {});
+
+				console.log(`🗑️ Deleted certificates for productId: ${productIdStr}`);
+				return true;
 			}
-
-			await firestore
-				.collection(FIRESTORE_COLLECTION)
-				.doc(productIdStr)
-				.delete()
-				.catch(() => {});
-
-			console.log(`🗑️ Deleted certificates for productId: ${productIdStr}`);
-			return true;
 		} catch (err) {
 			console.error(
 				`❌ Error deleting certificates for productId ${productId}:`,
@@ -263,48 +324,81 @@ export class CertificatesService {
 		certId: string,
 	): Promise<boolean> {
 		const productIdStr = String(productId);
-		const bucket = storage.bucket(BUCKET_NAME);
+
 		try {
-			const docRef = firestore
-				.collection(FIRESTORE_COLLECTION)
-				.doc(productIdStr);
-			const doc = await docRef.get();
-			if (!doc.exists) return false;
-			const data = doc.data() || {};
-			const certificates = Array.isArray(data.certificates)
-				? data.certificates
-				: [];
-			const cert = certificates.find(
-				(c: any) => String(c.id) === String(certId),
-			);
-			if (!cert) return false;
-			if (cert.bucketPath) {
-				const path = String(cert.bucketPath);
-				const prefix = `gs://${BUCKET_NAME}/`;
-				if (path.startsWith(prefix)) {
-					const objectName = path.slice(prefix.length);
-					await bucket
-						.file(objectName)
-						.delete()
-						.catch((e) => {
-							if (e.code === 404) return; // ignore not found
-							throw e;
-						});
+			if (USE_MOCK_STORAGE) {
+				// Mock storage implementation
+				const existing = mockStorage.get(productIdStr);
+				if (!existing) return false;
+
+				const certificates = Array.isArray(existing.certificates)
+					? existing.certificates
+					: [];
+				const cert = certificates.find(
+					(c: any) => String(c.id) === String(certId),
+				);
+				if (!cert) return false;
+
+				const updated = certificates.filter(
+					(c: any) => String(c.id) !== String(certId),
+				);
+
+				if (updated.length > 0) {
+					existing.certificates = updated;
+					mockStorage.set(productIdStr, existing);
+				} else {
+					// no certificates left: delete product
+					mockStorage.delete(productIdStr);
 				}
-			}
-			const updated = certificates.filter(
-				(c: any) => String(c.id) !== String(certId),
-			);
-			if (updated.length > 0) {
-				await docRef.set({ certificates: updated }, { merge: true });
+
+				console.log(
+					`🧪 [MOCK] Deleted certificate ${certId} for productId: ${productIdStr}`,
+				);
+				return true;
 			} else {
-				// no certificates left: delete product doc
-				await docRef.delete().catch(() => {});
+				// Firestore implementation
+				const bucket = storage.bucket(BUCKET_NAME);
+				const docRef = firestore
+					?.collection(FIRESTORE_COLLECTION)
+					.doc(productIdStr);
+				const doc = await docRef.get();
+				if (!doc.exists) return false;
+				const data = doc.data() || {};
+				const certificates = Array.isArray(data.certificates)
+					? data.certificates
+					: [];
+				const cert = certificates.find(
+					(c: any) => String(c.id) === String(certId),
+				);
+				if (!cert) return false;
+				if (cert.bucketPath) {
+					const path = String(cert.bucketPath);
+					const prefix = `gs://${BUCKET_NAME}/`;
+					if (path.startsWith(prefix)) {
+						const objectName = path.slice(prefix.length);
+						await bucket
+							.file(objectName)
+							.delete()
+							.catch((e) => {
+								if (e.code === 404) return; // ignore not found
+								throw e;
+							});
+					}
+				}
+				const updated = certificates.filter(
+					(c: any) => String(c.id) !== String(certId),
+				);
+				if (updated.length > 0) {
+					await docRef.set({ certificates: updated }, { merge: true });
+				} else {
+					// no certificates left: delete product doc
+					await docRef.delete().catch(() => {});
+				}
+				console.log(
+					`🗑️ Deleted certificate ${certId} for productId: ${productIdStr}`,
+				);
+				return true;
 			}
-			console.log(
-				`🗑️ Deleted certificate ${certId} for productId: ${productIdStr}`,
-			);
-			return true;
 		} catch (err) {
 			console.error(
 				`❌ Error deleting certificate ${certId} for productId ${productId}:`,

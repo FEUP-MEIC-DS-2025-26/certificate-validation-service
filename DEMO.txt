@@ -1,0 +1,517 @@
+# Certificate Validation Service - Frontend Demo Requirements
+
+## 🎯 Service Overview
+
+The Certificate Validation Service is a cloud-based system that validates, stores, and manages sustainability certificates for products. It integrates with ISCC (International Sustainability and Carbon Certification) to verify certificate authenticity and provides a complete certificate management solution.
+
+## 🏗️ Architecture Overview
+
+### Backend Services
+- **Certificate Validation Service** (Node.js/Bun + PubSub)
+- **Google Cloud Storage** (File storage)
+- **Firestore** (Metadata storage)
+- **ISCC API Integration** (Certificate verification)
+
+### Communication Protocol
+- **Pub/Sub Messaging** (Asynchronous request/response)
+- **REST API** (HTTP endpoints for web clients)
+- **Base64 File Transfer** (PDF certificate uploads)
+
+## 📋 Core Functionalities for Frontend Demo
+
+### 1. 📤 Certificate Upload Functionality
+
+**Purpose**: Upload and validate new sustainability certificates for products
+
+**User Flow**:
+1. User selects product ID or creates new product
+2. User uploads PDF certificate file
+3. User enters certificate ID (ISCC format)
+4. System validates certificate against ISCC database
+5. System stores certificate and metadata
+6. User receives success/failure notification
+
+**Frontend Components Needed**:
+- File upload component (PDF only)
+- Product ID input field
+- Certificate ID input field
+- Upload progress indicator
+- Validation status display
+- Success/error notifications
+
+**Technical Requirements**:
+- Convert PDF to Base64 before sending
+- Handle file size limits (recommend <10MB)
+- Validate file format (PDF only)
+- Show real-time validation progress
+- Handle certificate ID format validation
+
+**API Integration**:
+```javascript
+// PubSub Message Format
+{
+  "operationType": "upload",
+  "data": {
+    "productId": "product-123",
+    "file": "base64-encoded-pdf",
+    "certificateId": "ISCC-CORSIA-Cert-US201-2440920252"
+  }
+}
+
+// Response Format
+{
+  "operationType": "uploadResponse",
+  "status": true|false
+}
+```
+
+### 2. 📋 Product Listing Functionality
+
+**Purpose**: Display all products that have certificates
+
+**User Flow**:
+1. User views dashboard with all products
+2. Products are displayed in a grid/list view
+3. Each product shows basic info and certificate count
+4. User can click on product to view details
+
+**Frontend Components Needed**:
+- Product grid/list component
+- Product card component (showing name, certificate count, upload date)
+- Pagination for large datasets
+- Loading states and empty states
+
+**Technical Requirements**:
+- Real-time updates when new certificates are uploaded
+- Responsive design for mobile/desktop
+- Sort options (by date, name, certificate count)
+
+**API Integration**:
+```javascript
+// Request
+{
+  "operationType": "list",
+  "data": {}
+}
+
+// Response
+{
+  "operationType": "listResponse",
+  "productIds": ["product-1", "product-2", "product-3"],
+  "total": 3
+}
+```
+
+### 3. 📄 Certificate Details View
+
+**Purpose**: Show all certificates for a specific product
+
+**User Flow**:
+1. User clicks on a product from the list
+2. System shows all certificates for that product
+3. Each certificate shows metadata and download options
+4. User can view certificate details or delete certificates
+
+**Frontend Components Needed**:
+- Certificate list component
+- Certificate card component (showing metadata)
+- Certificate preview modal
+- Download button for PDF files
+- Delete confirmation dialog
+- Certificate status indicators
+
+**Technical Requirements**:
+- Display certificate metadata (upload date, validity period, verification status)
+- PDF preview capability
+- Download functionality
+- Delete with confirmation
+- Show certificate validity status
+
+**API Integration**:
+```javascript
+// Request
+{
+  "operationType": "listProductCertificates",
+  "data": {
+    "productId": "product-123"
+  }
+}
+
+// Response
+{
+  "operationType": "listProductCertificatesResponse",
+  "productId": "product-123",
+  "certificates": [
+    {
+      "id": "cert-123",
+      "bucketPath": "gs://bucket/path/certificate.pdf",
+      "uploadedAt": "2025-01-15T10:30:00.000Z",
+      "verified": true,
+      "validUntil": "2025-12-31"
+    }
+  ],
+  "total": 1
+}
+```
+
+### 4. 🗑️ Certificate Management
+
+**Purpose**: Delete individual certificates from products
+
+**User Flow**:
+1. User views certificates for a product
+2. User clicks delete on a certificate
+3. System shows confirmation dialog
+4. User confirms deletion
+5. System removes certificate and updates UI
+
+**Frontend Components Needed**:
+- Delete button with confirmation
+- Loading states during deletion
+- Success/error notifications
+- Undo functionality (optional)
+
+**Technical Requirements**:
+- Prevent accidental deletions
+- Show deletion progress
+- Update UI immediately after deletion
+- Handle errors gracefully
+
+**API Integration**:
+```javascript
+// Request
+{
+  "operationType": "deleteProductCertificate",
+  "data": {
+    "productId": "product-123",
+    "certificateId": "cert-123"
+  }
+}
+
+// Response
+{
+  "operationType": "deleteProductCertificateResponse",
+  "productId": "product-123",
+  "certificateId": "cert-123",
+  "status": true|false
+}
+```
+
+## 🎨 UI/UX Design Requirements
+
+### Design System
+- **Color Scheme**: Green/blue for sustainability theme
+- **Typography**: Clean, professional fonts
+- **Icons**: Use sustainability-themed icons
+- **Layout**: Responsive grid system
+
+### Key Pages/Views
+
+#### 1. Dashboard/Home Page
+- Overview statistics (total products, total certificates)
+- Recent uploads
+- Quick actions (upload new certificate)
+- Product grid/list
+
+#### 2. Upload Page
+- Drag-and-drop file upload area
+- Form fields for product ID and certificate ID
+- Upload progress indicator
+- Validation status display
+
+#### 3. Product Details Page
+- Product information header
+- Certificate list with metadata
+- Upload new certificate button
+- Certificate management options
+
+#### 4. Certificate Preview Modal
+- PDF viewer component
+- Certificate metadata display
+- Download and delete options
+
+### Responsive Design
+- **Mobile**: Single column layout, simplified navigation
+- **Tablet**: Two-column layout, optimized touch targets
+- **Desktop**: Multi-column layout, full functionality
+
+## 🔧 Technical Implementation Guide
+
+### Frontend Framework Options
+- **React**: Recommended for component-based architecture
+- **Vue.js**: Good for progressive enhancement
+- **Angular**: Enterprise-grade applications
+- **Next.js**: Full-stack React with SSR
+
+### Key Libraries Needed
+- **PDF Handling**: react-pdf, pdf.js
+- **File Upload**: react-dropzone, axios
+- **UI Components**: Material-UI, Ant Design, or Tailwind CSS
+- **State Management**: Redux, Zustand, or Context API
+- **HTTP Client**: Axios or Fetch API
+- **Notifications**: React-Toastify, Notistack
+
+### PubSub Integration (Alternative to REST)
+For real-time demo, you can implement PubSub client:
+
+```javascript
+// Example PubSub client for frontend
+import { PubSub } from '@google-cloud/pubsub';
+
+const pubSubClient = new PubSub({ projectId: 'your-project' });
+
+// Publish request
+async function uploadCertificate(productId, file, certificateId) {
+  const payload = {
+    operationType: 'upload',
+    data: { productId, file, certificateId }
+  };
+  
+  await pubSubClient.topic('certificate-validation')
+    .publishMessage({ data: Buffer.from(JSON.stringify(payload)) });
+}
+
+// Listen for responses
+const subscription = pubSubClient.subscription('certificate-validator-response-sub');
+subscription.on('message', (message) => {
+  const response = JSON.parse(message.data.toString());
+  // Handle response in UI
+  message.ack();
+});
+```
+
+### REST API Alternative
+If PubSub is too complex for demo, create HTTP wrapper:
+ Crypto Shark Tank Reached Peak Insanity 
+```javascript
+// HTTP API wrapper
+const API_BASE_URL = 'https://your-service-url.com';
+
+async function uploadCertificate(productId, file, certificateId) {
+  const response = await fetch(`${API_BASE_URL}/certificates/upload`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ productId, file, certificateId })
+  });
+  return response.json();
+}
+```
+
+## 📱 Demo Features to Highlight
+
+### Core Features
+1. **Real-time Certificate Validation** - Show ISCC verification process
+2. **Drag-and-Drop Upload** - Modern file upload experience
+3. **Certificate Gallery** - Visual display of all certificates
+4. **Search & Filter** - Find products/certificates quickly
+5. **Download Management** - Download original PDF certificates
+
+### Advanced Features
+1. **Bulk Upload** - Upload multiple certificates at once
+2. **Certificate Analytics** - Show expiration dates, validity status
+3. **Export Functionality** - Export certificate lists
+4. **User Preferences** - Theme, layout options
+5. **Offline Support** - Cache certificates for offline viewing
+
+### Demo Data
+- Pre-populate with sample products
+- Use valid ISCC certificate IDs for testing
+- Include various certificate types (CORSIA, PLUS, etc.)
+- Show different validity periods and statuses
+
+## 🚀 Getting Started Guide
+
+### Prerequisites
+1. Backend service running and accessible
+2. Google Cloud credentials configured
+3. Valid ISCC certificate IDs for testing
+
+### Development Setup
+1. Clone frontend repository
+2. Install dependencies
+3. Configure environment variables
+4. Start development server
+5. Test with backend service
+
+### Environment Variables
+```bash
+REACT_APP_API_URL=https://your-service-url.com
+REACT_APP_PROJECT_ID=your-gcp-project
+REACT_APP_PUBSUB_TOPIC=certificate-validation
+REACT_APP_PUBSUB_SUBSCRIPTION=certificate-validator-response-sub
+```
+
+## 📊 Success Metrics for Demo
+
+### Functional Metrics
+- ✅ Certificate upload success rate >95%
+- ✅ Certificate validation accuracy 100%
+- ✅ File download success rate 100%
+- ✅ Delete operation success rate >95%
+
+### Performance Metrics
+- ✅ Page load time <3 seconds
+- ✅ File upload time <30 seconds (for 5MB PDF)
+- ✅ Search response time <1 second
+- ✅ Mobile responsiveness score >90
+
+### User Experience Metrics
+- ✅ Intuitive navigation (no training required)
+- ✅ Clear error messages and help text
+- ✅ Consistent design language
+- ✅ Accessibility compliance (WCAG 2.1)
+
+## 🎯 Demo Script
+
+### Scenario 1: First-Time User
+1. User visits dashboard
+2. User uploads first certificate
+3. User sees validation process
+4. User views certificate in gallery
+5. User downloads certificate
+
+### Scenario 2: Power User
+2. User uploads multiple certificates
+3. User manages certificate collection
+4. User exports certificate list
+5. User deletes expired certificates
+
+### Scenario 3: Admin User
+1. User views system statistics
+2. User monitors certificate validity
+3. User handles validation failures
+4. User manages bulk operations
+5. User generates reports
+
+## 📨 Valid Message Formats and Expected Responses
+
+Based on the service implementation and test files, here are the exact message formats that the Certificate Validation Service accepts and the responses it returns:
+
+### 1. Upload Certificate Operation
+
+**Request Message:**
+```json
+{
+  "operationType": "upload",
+  "data": {
+    "productId": "string",
+    "file": "base64-encoded-pdf",
+    "certificateId": "string"
+  }
+}
+```
+
+**Expected Response:**
+```json
+{
+  "operationType": "uploadResponse",
+  "status": true|false
+}
+```
+
+**Valid Certificate IDs Used in Tests:**
+- `"ISCC-CORSIA-Cert-US201-2440920252"`
+- `"EU-ISCC-Cert-ES216-20254133"`
+
+### 2. List All Products Operation
+
+**Request Message:**
+```json
+{
+  "operationType": "list",
+  "data": {}
+}
+```
+
+**Expected Response:**
+```json
+{
+  "operationType": "listResponse",
+  "productIds": ["product-1", "product-2", "product-3"],
+  "total": 3
+}
+```
+
+### 3. List Certificates for Specific Product
+
+**Request Message:**
+```json
+{
+  "operationType": "listProductCertificates",
+  "data": {
+    "productId": "string"
+  }
+}
+```
+
+**Expected Response:**
+```json
+{
+  "operationType": "listProductCertificatesResponse",
+  "productId": "product-123",
+  "certificates": [
+    {
+      "id": "string",
+      "bucketPath": "string",
+      "uploadedAt": "string",
+      "verified": true|false,
+      "validUntil": "string|null"
+    }
+  ],
+  "total": 1
+}
+```
+
+### 4. Delete Product Certificate Operation
+
+**Request Message:**
+```json
+{
+  "operationType": "deleteProductCertificate",
+  "data": {
+    "productId": "string",
+    "certificateId": "string"
+  }
+}
+```
+
+**Expected Response:**
+```json
+{
+  "operationType": "deleteProductCertificateResponse",
+  "productId": "product-123",
+  "certificateId": "cert-123",
+  "status": true|false
+}
+```
+
+## 🔧 Message Handling Details
+
+### Communication Protocol
+- **Transport**: Google Cloud Pub/Sub
+- **Request Topic**: `CertificatesRequestTopic`
+- **Response Topic**: `CertificatesResponseTopic`
+- **Response Subscription**: `CertificatesResponseSubscription`
+
+### Message Structure
+All messages follow this pattern:
+```json
+{
+  "operationType": "string",
+  "data": { /* operation-specific data */ }
+}
+```
+
+### Error Handling
+- Missing required fields return `status: false`
+- Invalid certificate IDs return `status: false`
+- Non-existent products/certificates return `status: false`
+- All operations return structured responses with appropriate operation types
+
+### File Upload Requirements
+- **Format**: PDF files only
+- **Encoding**: Base64 string
+- **Size**: Recommended <10MB
+- **Certificate ID**: Must follow ISCC format patterns
+
+This comprehensive frontend demo will showcase all the certificate validation service capabilities while providing an excellent user experience for sustainability certificate management.

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Simple test to call the list endpoint and check for productIds
-CLOUD_RUN_URL="${CLOUD_RUN_URL:-http://localhost:8081}"
+CLOUD_RUN_URL="${CLOUD_RUN_URL:-https://v0-certificate-validation-website-b.vercel.app/}"
 
 echo "[test-list] Using Cloud Run URL: $CLOUD_RUN_URL" >&2
 

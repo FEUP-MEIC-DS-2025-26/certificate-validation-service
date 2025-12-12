@@ -1,0 +1,317 @@
+# Certificate Validation Service - Demonstration Website
+
+## API Specification
+
+### Base URL
+```
+https://certificate-validation-180908610681.europe-southwest1.run.app
+```
+
+### Endpoints
+
+#### 1. Upload Certificate
+- **POST** `/certificates/upload`
+- **Body**: JSON with `productId`, `file` (base64), `certificateId`
+- **Response**: `{ "success": true/false }`
+- **Example**:
+```bash
+curl -X POST "https://certificate-validation-180908610681.europe-southwest1.run.app/certificates/upload" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "productId": "bananao-001",
+    "certificateId": "ISCC-CORSIA-Cert-US201-2440920252",
+    "file": "base64-encoded-pdf-content"
+  }'
+```
+
+#### 2. List All Products
+- **GET** `/certificates`
+- **Response**: `{ "productIds": ["id1", "id2"], "total": 2 }`
+- **Example**:
+```bash
+curl -X GET "https://certificate-validation-180908610681.europe-southwest1.run.app/certificates"
+```
+
+#### 3. List Product Certificates
+- **GET** `/certificates/:productId`
+- **Response**: `{ "certificates": [...] }` or `[]` if none exist
+- **Example**:
+```bash
+curl -X GET "https://certificate-validation-180908610681.europe-southwest1.run.app/certificates/bananao-001"
+```
+
+#### 4. Delete Product Certificates
+- **DELETE** `/certificates/:productId`
+- **Response**: `{ "success": true/false }`
+- **Example**:
+```bash
+curl -X DELETE "https://certificate-validation-180908610681.europe-southwest1.run.app/certificates/bananao-001"
+```
+
+#### 5. Health Check
+- **GET** `/healthz`
+- **Response**: `"ok"`
+
+## Demonstration Website Implementation Plan
+
+### Technology Stack
+- **Frontend**: React with TypeScript
+- **Styling**: Tailwind CSS
+- **HTTP Client**: Axios
+- **File Handling**: Base64 encoding/decoding
+- **State Management**: React Context API
+
+### Project Structure
+```
+demo-website/
+├── public/
+│   ├── index.html
+│   └── favicon.ico
+├── src/
+│   ├── components/
+│   │   ├── Header.tsx
+│   │   ├── ProductList.tsx
+│   │   ├── CertificateUpload.tsx
+│   │   ├── CertificateView.tsx
+│   │   └── LoadingSpinner.tsx
+│   ├── services/
+│   │   └── api.ts
+│   ├── types/
+│   │   └── certificate.ts
+│   ├── hooks/
+│   │   └── useCertificates.ts
+│   ├── App.tsx
+│   └── index.tsx
+├── package.json
+└── README.md
+```
+
+### Core Components
+
+#### 1. Header Component
+- Navigation between different sections
+- Service status indicator
+- Brand/logo
+
+#### 2. ProductList Component
+- Fetches and displays all products
+- Click to view product details
+- Delete product functionality
+- Real-time updates
+
+#### 3. CertificateUpload Component
+- Drag-and-drop file upload
+- Product ID and Certificate ID inputs
+- Base64 encoding
+- Upload progress indicator
+- Success/error feedback
+
+#### 4. CertificateView Component
+- Display certificate metadata
+- Show verification status
+- Validity dates
+- Download certificate option
+
+#### 5. LoadingSpinner Component
+- Consistent loading states
+- Smooth animations
+
+### API Service Layer
+
+#### api.ts
+```typescript
+const API_BASE = 'https://certificate-validation-180908610681.europe-southwest1.run.app';
+
+export const certificateAPI = {
+  uploadCertificate: async (productId: string, certificateId: string, file: File) => {
+    const base64 = await fileToBase64(file);
+    return axios.post(`${API_BASE}/certificates/upload`, {
+      productId,
+      certificateId,
+      file: base64
+    });
+  },
+  
+  listProducts: async () => {
+    return axios.get(`${API_BASE}/certificates`);
+  },
+  
+  getProductCertificates: async (productId: string) => {
+    return axios.get(`${API_BASE}/certificates/${productId}`);
+  },
+  
+  deleteProduct: async (productId: string) => {
+    return axios.delete(`${API_BASE}/certificates/${productId}`);
+  },
+  
+  healthCheck: async () => {
+    return axios.get(`${API_BASE}/healthz`);
+  }
+};
+```
+
+### User Interface Flow
+
+#### 1. Landing Page
+- Hero section with service description
+- Quick stats (total products, certificates)
+- Call-to-action buttons
+
+#### 2. Upload Section
+- Interactive file upload area
+- Form validation
+- Real-time feedback
+- Success confirmation
+
+#### 3. Browse Section
+- Product grid/list view
+- Search and filter options
+- Certificate details modal
+- Delete confirmations
+
+#### 4. Status Dashboard
+- Service health status
+- Recent uploads
+- Verification results
+
+### Sample Demo Data
+
+#### Test Product
+- **Product ID**: `bananao-001`
+- **Certificate ID**: `ISCC-CORSIA-Cert-US201-2440920252`
+- **Sample File**: `test_to_send/spiderweb.pdf`
+
+#### Mock Data for Development
+```typescript
+const mockProducts = [
+  {
+    productId: "bananao-001",
+    certificates: [
+      {
+        id: "cert-001",
+        uploadedAt: "2025-01-15T10:30:00Z",
+        verified: true,
+        validUntil: "2025-12-31T23:59:59Z"
+      }
+    ]
+  },
+  {
+    productId: "ISCC-PLUS-Cert-US201-134022025",
+    certificates: []
+  }
+];
+```
+
+### Interactive Features
+
+#### 1. File Upload
+- Drag and drop zone
+- File type validation (PDF only)
+- File size limits
+- Progress bar
+- Error handling
+
+#### 2. Real-time Updates
+- Auto-refresh product list
+- Live status updates
+- Toast notifications
+
+#### 3. Responsive Design
+- Mobile-first approach
+- Tablet and desktop layouts
+- Touch-friendly interactions
+
+#### 4. Error Handling
+- User-friendly error messages
+- Retry mechanisms
+- Fallback states
+
+### Deployment Options
+
+#### 1. Static Hosting
+- GitHub Pages
+- Netlify
+- Vercel
+- Firebase Hosting
+
+#### 2. Build Process
+- React build optimization
+- Asset minification
+- Bundle analysis
+
+### Security Considerations
+
+#### 1. CORS Configuration
+- Ensure API allows demo domain
+- Proper headers configuration
+
+#### 2. Input Validation
+- Client-side validation
+- Server-side validation (already implemented)
+
+#### 3. Error Handling
+- No sensitive data exposure
+- Generic error messages
+
+### Performance Optimization
+
+#### 1. Code Splitting
+- Lazy loading components
+- Route-based splitting
+
+#### 2. Caching
+- API response caching
+- Static asset caching
+
+#### 3. Bundle Optimization
+- Tree shaking
+- Dead code elimination
+
+### Testing Strategy
+
+#### 1. Unit Tests
+- Component testing
+- API service testing
+
+#### 2. Integration Tests
+- End-to-end user flows
+- API integration
+
+#### 3. Manual Testing
+- Cross-browser compatibility
+- Mobile device testing
+
+### Success Metrics
+
+#### 1. User Engagement
+- Upload completion rate
+- Time spent on site
+- Feature usage
+
+#### 2. Performance
+- Page load times
+- API response times
+- Error rates
+
+#### 3. Conversion
+- Demo to production interest
+- Contact form submissions
+
+### Future Enhancements
+
+#### 1. Advanced Features
+- Certificate search
+- Bulk operations
+- Export functionality
+
+#### 2. Analytics
+- Usage tracking
+- Performance monitoring
+- User behavior analysis
+
+#### 3. Integrations
+- Third-party authentication
+- External certificate databases
+- Workflow automation
+
+This comprehensive plan provides everything needed to build a professional demonstration website that effectively showcases the Certificate Validation Service's capabilities while providing an excellent user experience.
