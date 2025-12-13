@@ -19,7 +19,7 @@ env:
 
 jobs:
   build:
-    runs-on: t01g01
+    runs-on: self-hosted
 
     steps:
       - name: Checkout code
@@ -91,4 +91,5 @@ jobs:
             --set-env-vars BUCKET_NAME=$BUCKET_NAME,PROJECT_ID=$PROJECT_ID \
             --quiet \
             --allow-unauthenticated
+
 
