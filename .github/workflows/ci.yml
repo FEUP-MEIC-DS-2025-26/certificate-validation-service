@@ -6,7 +6,7 @@ on:
 
 jobs:
   quality:
-    runs-on: t01g01
+    runs-on: self-hosted
     permissions:
       contents: read
     steps:
@@ -20,4 +20,5 @@ jobs:
           version: latest
       - name: Run Biome
         run: biome ci .
+
 
