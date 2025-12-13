@@ -1,8 +1,8 @@
-name: Build and Deploy
+name: Deploy changes
 
 on:
   push:
-    branches: [main]
+    branches: ["main"]
   workflow_dispatch:
 
 env:
@@ -16,17 +16,19 @@ env:
   RESPONSE_TOPIC: certificate-validatior-response
   REQUEST_SUBSCRIPTION: certificate-validation-sub 
   RESPONSE_SUBSCRIPTION: certificate-validator-response-sub
+  IMAGE_URI: ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
 jobs:
-  build:
+  docker:
     runs-on: self-hosted
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
 
       - name: Set up Google Cloud authentication
         uses: google-github-actions/auth@v2
@@ -34,65 +36,43 @@ jobs:
           credentials_json: ${{ secrets.GCP_CREDENTIALS }}
 
       - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker $REGISTRY --quiet
+        run: |
+          gcloud auth configure-docker ${{ env.REGISTRY }}
 
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v2
+      - name: Build and Push Docker image
+        run: |
+          docker build -t "$IMAGE_URI" .
+          docker push "$IMAGE_URI"
+
+  terraform:
+    needs: docker
+    runs-on: self-hosted
+    defaults:
+      run:
+        working-directory: ./infra
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
         with:
-          terraform_version: 1.5.6
+          project_id: ${{ env.PROJECT_ID }}
 
-      - name: Create Backend Bucket if missing
-        run: |
-          # 1. Check if the bucket exists
-          if ! gcloud storage ls gs://$BUCKET_NAME > /dev/null 2>&1; then
-            echo "Bucket $BUCKET_NAME does not exist. Creating it..."
-            
-            # 2. Create the bucket
-            gcloud storage buckets create gs://$BUCKET_NAME \
-              --project=$PROJECT_ID \
-              --location=$REGION \
-              --uniform-bucket-level-access
-              
-            echo "Bucket created successfully."
-          else
-            echo "Bucket $BUCKET_NAME already exists."
-          fi
+      - name: Set up Google Cloud authentication
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
 
-      - name: Terraform init & apply (infra)
-        working-directory: infra
-        env:
-          GOOGLE_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
-          CLOUDSDK_CORE_PROJECT: ${{ env.PROJECT_ID }}
-        run: |
-          terraform init -input=false
-          terraform apply -auto-approve -input=false -var="project_id=${{ env.PROJECT_ID }}" -var="bucket_name=${{ env.BUCKET_NAME }}"
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
 
-      - name: Define image tags
-        id: vars
-        run: |
-          SHA_TAG=${GITHUB_SHA::7}
-          echo "sha_tag=$SHA_TAG" >> $GITHUB_OUTPUT
-          echo "image=$REGISTRY/$PROJECT_ID/$REPOSITORY/$IMAGE_NAME" >> $GITHUB_OUTPUT
+      - name: Terraform Init
+        run: terraform init -input=false
 
-      - name: Build Docker image
-        run: |
-          docker build -t ${{ steps.vars.outputs.image }}:latest \
-                       -t ${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.sha_tag }} .
+      - name: Terraform Plan
+        run: terraform plan -input=false -var "docker_image=${{ env.IMAGE_URI }}" -var="project_id=${{ env.PROJECT_ID }}" -var="bucket_name=${{ env.BUCKET_NAME }}"
 
-      - name: Push Docker images
-        run: |
-          docker push ${{ steps.vars.outputs.image }}:latest
-          docker push ${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.sha_tag }}
-
-      - name: Deploy to Cloud Run
-        run: |
-          gcloud run deploy certificate-validation \
-            --image ${{ steps.vars.outputs.image }}:latest \
-            --region $REGION \
-            --project $PROJECT_ID \
-            --platform managed \
-            --set-env-vars BUCKET_NAME=$BUCKET_NAME,PROJECT_ID=$PROJECT_ID \
-            --quiet \
-            --allow-unauthenticated
-
-
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -input=false -var "docker_image=${{ env.IMAGE_URI }}" -var="project_id=${{ env.PROJECT_ID }}" -var="bucket_name=${{ env.BUCKET_NAME }}"
