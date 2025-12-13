@@ -16,11 +16,12 @@ env:
   RESPONSE_TOPIC: certificate-validatior-response
   REQUEST_SUBSCRIPTION: certificate-validation-sub 
   RESPONSE_SUBSCRIPTION: certificate-validator-response-sub
-  IMAGE_URI: ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
 jobs:
   docker:
     runs-on: self-hosted
+    outputs:
+      IMAGE_URI: ${{ steps.build-image.outputs.IMAGE_URI }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -40,7 +41,10 @@ jobs:
           gcloud auth configure-docker ${{ env.REGISTRY }}
 
       - name: Build and Push Docker image
+        id: build-image
         run: |
+          IMAGE_URI="${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          echo "IMAGE_URI=${IMAGE_URI}" >> $GITHUB_OUTPUT
           docker build -t "$IMAGE_URI" .
           docker push "$IMAGE_URI"
 
@@ -72,7 +76,7 @@ jobs:
         run: terraform init -input=false
 
       - name: Terraform Plan
-        run: terraform plan -input=false -var "docker_image=${{ env.IMAGE_URI }}" -var="project_id=${{ env.PROJECT_ID }}" -var="bucket_name=${{ env.BUCKET_NAME }}"
+        run: terraform plan -input=false -var "docker_image=${{ needs.docker.outputs.IMAGE_URI }}" -var="project_id=${{ env.PROJECT_ID }}" -var="bucket_name=${{ env.BUCKET_NAME }}"
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve -input=false -var "docker_image=${{ env.IMAGE_URI }}" -var="project_id=${{ env.PROJECT_ID }}" -var="bucket_name=${{ env.BUCKET_NAME }}"
+        run: terraform apply -auto-approve -input=false -var "docker_image=${{ needs.docker.outputs.IMAGE_URI }}" -var="project_id=${{ env.PROJECT_ID }}" -var="bucket_name=${{ env.BUCKET_NAME }}"
