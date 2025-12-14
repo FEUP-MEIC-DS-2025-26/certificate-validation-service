@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # === CONFIGURATION ===
-CLOUD_RUN_URL="${CLOUD_RUN_URL:-https://certificate-validation-180908610681.europe-southwest1.run.app}"
+CLOUD_RUN_URL="${CLOUD_RUN_URL:-https://certificate-validation-pubsub-180908610681.europe-southwest1.run.app}"
 PRODUCT_ID="${1:-bananao-001}"
 # Default to a local test PDF (file name no longer needs to match productId)
 PDF_PATH="${2:-test_to_send/spiderweb.pdf}"
