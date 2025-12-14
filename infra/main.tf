@@ -48,6 +48,11 @@ resource "google_cloud_run_v2_service" "default" {
       image = var.docker_image
 
       env {
+        name  = "PROJECT_ID"
+        value = var.project_id
+      }
+
+      env {
         name  = "REQUEST_TOPIC"
         value = "projects/${var.project_id}/topics/${google_pubsub_topic.certificate_validation.name}"
       }
@@ -116,3 +121,4 @@ output "response_subscription" {
   description = "The response Pub/Sub subscription name."
   value       = google_pubsub_subscription.certificate_validator_response_sub.name
 }
+
