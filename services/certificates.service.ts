@@ -118,8 +118,7 @@ export class CertificatesService {
 
 		const productIdStr = String(productId);
 		// generate a per-certificate id so products can have many certificates
-		const certId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-		const objectName = `certificates/${productIdStr}_${certId}.pdf`;
+		const objectName = `certificates/${productIdStr}_${certificateId}.pdf`;
 		const bucket = storage.bucket(BUCKET_NAME);
 		const gcsFile = bucket.file(objectName);
 
@@ -132,7 +131,7 @@ export class CertificatesService {
 
 			// Write metadata to Firestore or mock storage
 			const certMeta = {
-				id: certId,
+				id: certificateId,
 				bucketPath: USE_MOCK_STORAGE
 					? `mock://certificates/${objectName}`
 					: `gs://${BUCKET_NAME}/${objectName}`,
